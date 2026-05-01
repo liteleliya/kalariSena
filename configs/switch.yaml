@@ -1,0 +1,7 @@
+delta1: 0.05
+# cp_margin -> fall threshold
+delta2: 15.0
+# momentum_norm -> fall threshold
+delta3: 0.20
+# base_height -> recovery threshold
+min_dwell_steps: 30

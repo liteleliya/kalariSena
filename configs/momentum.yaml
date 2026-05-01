@@ -1,0 +1,12 @@
+checkpoint: models/com_best.pt
+obs:
+  momentum: true
+rewards:
+  tracking_joint: 1.0
+  action_smoothness: 0.01
+  momentum_magnitude: 0.1
+  momentum_phase_weighted: {W: 0.1}
+curriculum:
+  phase_weight_by_family:
+    rotational: 1.5
+    explosive_strike: 2.0

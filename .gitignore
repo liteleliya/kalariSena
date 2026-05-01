@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+
+# Generated outputs
+cloud_outputs/
+outputs/
+data/motions_retargeted/
+data/splits/
+models/
+
+# Media / logs
+*.mp4
+*.bvh
+*.log

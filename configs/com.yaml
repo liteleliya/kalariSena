@@ -1,0 +1,11 @@
+checkpoint: models/tracking_best.pt
+obs:
+  com_support: true
+rewards:
+  tracking_joint: 1.0
+  action_smoothness: 0.01
+  com_support_margin: {lam: 0.5, delta: 0.05}
+  capture_point_margin: {lam: 0.5, delta: 0.05}
+curriculum:
+  oversample_families: [single_support, stable_stance]
+  oversample_factor: 3.0

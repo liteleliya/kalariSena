@@ -1,0 +1,10 @@
+checkpoint: models/momentum_best.pt
+obs:
+  switch_features: true
+rewards:
+  impact_penalty:
+    weight: 1.0
+    vulnerable_weights:
+      head: 5.0
+      torso: 2.0
+  head_hit_penalty: {lam: 5.0}

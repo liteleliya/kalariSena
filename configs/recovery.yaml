@@ -1,0 +1,6 @@
+checkpoint: models/fall_best.pt
+obs:
+  switch_features: true
+rewards:
+  recovery_success: {bonus: 10.0}
+  time_to_upright: {lam: 0.01}
