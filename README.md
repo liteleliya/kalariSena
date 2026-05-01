@@ -10,7 +10,7 @@ paste diagnostics.
 ## Prerequisites
 
 Minimum:
-- macOS or Linux
+- macOS, Linux, or Windows (see note below)
 - Python 3.10+
 - Git
 
@@ -24,6 +24,10 @@ For training (later stages):
 Repo expectations:
 - The folders GEM-X/ and unitree_rl_mjlab/ should exist at repo root.
   If they are not present, clone them separately or add as submodules.
+
+Windows note:
+- The pipeline can run on Windows, but GEM-X + CUDA + MuJoCo are most reliable on
+  Linux. For Windows users, we recommend WSL2 + Ubuntu with NVIDIA GPU passthrough.
 
 ## Install (pipeline only)
 
