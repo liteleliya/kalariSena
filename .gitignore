@@ -10,6 +10,10 @@ data/motions_retargeted/
 data/splits/
 models/
 
+# External repos pulled by installer
+GEM-X/
+unitree_rl_mjlab/
+
 # Media / logs
 *.mp4
 *.bvh

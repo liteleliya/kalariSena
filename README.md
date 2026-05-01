@@ -29,6 +29,17 @@ Windows note:
 - The pipeline can run on Windows, but GEM-X + CUDA + MuJoCo are most reliable on
   Linux. For Windows users, we recommend WSL2 + Ubuntu with NVIDIA GPU passthrough.
 
+## Install (subprojects)
+
+```bash
+chmod +x scripts/install_subprojects.sh
+bash scripts/install_subprojects.sh
+```
+
+This pulls:
+- GEM-X (NVlabs)
+- unitree_rl_mjlab (Unitree)
+
 ## Install (pipeline only)
 
 ```bash
@@ -89,6 +100,7 @@ This locks in:
 
 Use this checklist when setting up on a new machine:
 
+- [ ] Install subprojects (scripts/install_subprojects.sh)
 - [ ] Install pipeline deps (scripts/install_pipeline.sh)
 - [ ] Install GEM-X deps (GEM-X/docs/INSTALL.md)
 - [ ] Put G1 URDF on disk and note its path
