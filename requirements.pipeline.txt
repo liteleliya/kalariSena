@@ -4,3 +4,4 @@ pyyaml
 scipy
 shapely
 pin
+huggingface_hub

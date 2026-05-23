@@ -82,6 +82,82 @@ python scripts/run_pipeline.py --video /path/to/input.mp4 --skip-gemx
 python scripts/run_pipeline.py --video /path/to/input.mp4 --skip-annotate
 ```
 
+## Hugging Face Dataset Sync (Private)
+
+Use this when your source videos are stored in a private Hugging Face dataset,
+and you want to push the retargeted G1 references back into the dataset under a
+separate folder.
+
+Set your token once:
+
+```bash
+export HF_TOKEN="<your_hf_token>"
+```
+
+Download MP4 videos from a dataset folder (for example, `videos/`):
+
+```bash
+python scripts/sync_hf_dataset.py \
+  --repo-id <user_or_org>/<dataset_name> \
+  --mode download \
+  --remote-video-prefix videos \
+  --download-dir inputs/hf_videos
+```
+
+Upload retargeted G1 outputs from `cloud_outputs/` to a different dataset
+folder (for example, `retargeted_g1/`):
+
+```bash
+python scripts/sync_hf_dataset.py \
+  --repo-id <user_or_org>/<dataset_name> \
+  --mode upload \
+  --upload-source cloud_outputs \
+  --remote-retarget-prefix retargeted_g1 \
+  --skip-existing
+```
+
+Run both in one command:
+
+```bash
+python scripts/sync_hf_dataset.py \
+  --repo-id <user_or_org>/<dataset_name> \
+  --mode both \
+  --remote-video-prefix videos \
+  --download-dir inputs/hf_videos \
+  --upload-source cloud_outputs \
+  --remote-retarget-prefix retargeted_g1 \
+  --skip-existing
+```
+
+Notes:
+- The script defaults to `repo_type=dataset` and `revision=main`.
+- Default upload patterns include G1 retarget CSVs and retarget MP4 previews.
+- Use `--dry-run` to preview uploads without pushing files.
+
+### One-Command Cloud Flow (Pull -> Process -> Push)
+
+For cloud workers, use the orchestrator to run the full dataset loop in one go:
+
+```bash
+python scripts/hf_e2e_pipeline.py \
+  --repo-id liteleliya/kalarisena_clipped_vids \
+  --mode all \
+  --remote-video-prefix videos \
+  --local-video-dir inputs/hf_videos \
+  --output-root cloud_outputs \
+  --remote-retarget-prefix retargeted_g1 \
+  --skip-existing-motion \
+  --skip-existing-remote \
+  --continue-on-error
+```
+
+This runs:
+1. Download MP4 clips from HF dataset.
+2. Run `scripts/run_pipeline.py` for each clip.
+3. Upload retargeted G1 references back to HF.
+
+Use `--mode pull`, `--mode process`, or `--mode push` to run stages separately.
+
 ## Required diagnostics (must be filled)
 
 Before training, you **must** fill the TODO blocks with real diagnostics:
