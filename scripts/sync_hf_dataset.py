@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import os
+import re
+import time
 from pathlib import Path
 
 from huggingface_hub import HfApi, hf_hub_download
@@ -14,6 +16,11 @@ DEFAULT_UPLOAD_PATTERNS = [
     "**/*_retarget_g1_from_bvh.csv",
     "**/*_g1_retarget.mp4",
 ]
+DEFAULT_MAX_RETRIES = 5
+DEFAULT_RETRY_BASE_SECONDS = 5.0
+DEFAULT_RETRY_MAX_SECONDS = 300.0
+
+_RATE_LIMIT_T_RE = re.compile(r"t=(\d+)")
 
 
 def _split_csv_patterns(raw: str) -> list[str]:
@@ -38,6 +45,58 @@ def _resolve_token(token_arg: str | None) -> str:
     return token
 
 
+def _extract_retry_after(headers) -> float | None:
+    if not headers:
+        return None
+    retry_after = headers.get("Retry-After")
+    if retry_after:
+        try:
+            return float(retry_after)
+        except ValueError:
+            return None
+
+    rate_limit = headers.get("RateLimit")
+    if rate_limit:
+        matches = [int(m) for m in _RATE_LIMIT_T_RE.findall(rate_limit)]
+        if matches:
+            return float(max(matches))
+    return None
+
+
+def _is_rate_limited(exc: Exception) -> bool:
+    resp = getattr(exc, "response", None)
+    if resp is None:
+        return False
+    return getattr(resp, "status_code", None) == 429
+
+
+def _call_with_retry(
+    fn,
+    label: str,
+    max_retries: int,
+    base_delay: float,
+    max_delay: float,
+):
+    attempt = 0
+    while True:
+        try:
+            return fn()
+        except Exception as exc:
+            if not _is_rate_limited(exc) or attempt >= max_retries:
+                raise
+
+            resp = getattr(exc, "response", None)
+            retry_after = _extract_retry_after(getattr(resp, "headers", None))
+            delay = retry_after if retry_after is not None else base_delay * (2**attempt)
+            delay = min(max_delay, max(base_delay, delay))
+            print(
+                f"[RateLimit] {label} hit 429. Sleeping {delay:.1f}s before retry "
+                f"{attempt + 1}/{max_retries}."
+            )
+            time.sleep(delay)
+            attempt += 1
+
+
 def _download_videos(
     api: HfApi,
     repo_id: str,
@@ -47,12 +106,19 @@ def _download_videos(
     remote_prefix: str,
     patterns: list[str],
     token: str,
+    list_only: bool,
 ) -> int:
-    all_files = api.list_repo_files(
-        repo_id=repo_id,
-        repo_type=repo_type,
-        revision=revision,
-        token=token,
+    all_files = _call_with_retry(
+        lambda: api.list_repo_files(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            revision=revision,
+            token=token,
+        ),
+        label="list_repo_files",
+        max_retries=DEFAULT_MAX_RETRIES,
+        base_delay=DEFAULT_RETRY_BASE_SECONDS,
+        max_delay=DEFAULT_RETRY_MAX_SECONDS,
     )
 
     prefix = _normalize_prefix(remote_prefix)
@@ -64,9 +130,15 @@ def _download_videos(
         if _match_any(rel_for_match, patterns) or _match_any(file_path, patterns):
             matched.append(file_path)
 
-    local_dir.mkdir(parents=True, exist_ok=True)
+    if not list_only:
+        local_dir.mkdir(parents=True, exist_ok=True)
 
     for file_path in matched:
+        if list_only:
+            out_path = local_dir / file_path
+            print(f"[DRY RUN] Download: {file_path} -> {out_path}")
+            continue
+
         out_path = hf_hub_download(
             repo_id=repo_id,
             repo_type=repo_type,
@@ -105,6 +177,10 @@ def _upload_retarget_outputs(
     skip_existing: bool,
     dry_run: bool,
     commit_message: str,
+    upload_mode: str,
+    max_retries: int,
+    retry_base_seconds: float,
+    retry_max_seconds: float,
 ) -> int:
     if not local_root.exists():
         raise SystemExit(f"Upload source directory not found: {local_root}")
@@ -114,19 +190,56 @@ def _upload_retarget_outputs(
         print("No local files matched upload patterns.")
         return 0
 
+    if upload_mode == "folder" and skip_existing:
+        print("[Upload] skip-existing is not supported in folder mode. Falling back to per-file.")
+        upload_mode = "file"
+
     existing_remote: set[str] = set()
     if skip_existing:
         existing_remote = set(
-            api.list_repo_files(
-                repo_id=repo_id,
-                repo_type=repo_type,
-                revision=revision,
-                token=token,
+            _call_with_retry(
+                lambda: api.list_repo_files(
+                    repo_id=repo_id,
+                    repo_type=repo_type,
+                    revision=revision,
+                    token=token,
+                ),
+                label="list_repo_files",
+                max_retries=max_retries,
+                base_delay=retry_base_seconds,
+                max_delay=retry_max_seconds,
             )
         )
 
     prefix = _normalize_prefix(remote_prefix)
     uploaded = 0
+
+    if upload_mode == "folder":
+        if dry_run:
+            for local_path in candidates:
+                rel = local_path.relative_to(local_root).as_posix()
+                remote_path = f"{prefix}/{rel}" if prefix else rel
+                print(f"[DRY RUN] Upload: {local_path} -> {remote_path}")
+            return len(candidates)
+
+        path_in_repo = prefix or None
+        _call_with_retry(
+            lambda: api.upload_folder(
+                repo_id=repo_id,
+                repo_type=repo_type,
+                folder_path=str(local_root),
+                path_in_repo=path_in_repo,
+                revision=revision,
+                token=token,
+                commit_message=commit_message,
+                allow_patterns=patterns,
+            ),
+            label="upload_folder",
+            max_retries=max_retries,
+            base_delay=retry_base_seconds,
+            max_delay=retry_max_seconds,
+        )
+        return len(candidates)
 
     for local_path in candidates:
         rel = local_path.relative_to(local_root).as_posix()
@@ -141,14 +254,20 @@ def _upload_retarget_outputs(
             uploaded += 1
             continue
 
-        api.upload_file(
-            path_or_fileobj=str(local_path),
-            path_in_repo=remote_path,
-            repo_id=repo_id,
-            repo_type=repo_type,
-            revision=revision,
-            token=token,
-            commit_message=commit_message,
+        _call_with_retry(
+            lambda: api.upload_file(
+                path_or_fileobj=str(local_path),
+                path_in_repo=remote_path,
+                repo_id=repo_id,
+                repo_type=repo_type,
+                revision=revision,
+                token=token,
+                commit_message=commit_message,
+            ),
+            label=f"upload_file:{remote_path}",
+            max_retries=max_retries,
+            base_delay=retry_base_seconds,
+            max_delay=retry_max_seconds,
         )
         print(f"Uploaded: {local_path} -> {remote_path}")
         uploaded += 1
@@ -174,6 +293,11 @@ def _parse_args() -> argparse.Namespace:
         default=",".join(DEFAULT_DOWNLOAD_PATTERNS),
         help="Comma-separated glob patterns matched against remote file paths",
     )
+    parser.add_argument(
+        "--list-download",
+        action="store_true",
+        help="List matching remote files and local targets without downloading.",
+    )
 
     parser.add_argument("--upload-source", default="cloud_outputs")
     parser.add_argument("--remote-retarget-prefix", default="retargeted_g1")
@@ -182,9 +306,18 @@ def _parse_args() -> argparse.Namespace:
         default=",".join(DEFAULT_UPLOAD_PATTERNS),
         help="Comma-separated glob patterns matched against local relative file paths",
     )
+    parser.add_argument(
+        "--upload-mode",
+        default="folder",
+        choices=["folder", "file"],
+        help="Upload strategy: folder (batched) or file (per-file).",
+    )
     parser.add_argument("--skip-existing", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--commit-message", default="Upload retargeted G1 references")
+    parser.add_argument("--max-retries", type=int, default=DEFAULT_MAX_RETRIES)
+    parser.add_argument("--retry-base-seconds", type=float, default=DEFAULT_RETRY_BASE_SECONDS)
+    parser.add_argument("--retry-max-seconds", type=float, default=DEFAULT_RETRY_MAX_SECONDS)
     return parser.parse_args()
 
 
@@ -212,6 +345,7 @@ def main() -> None:
             remote_prefix=args.remote_video_prefix,
             patterns=download_patterns,
             token=token,
+            list_only=args.list_download,
         )
 
     if args.mode in {"upload", "both"}:
@@ -227,6 +361,10 @@ def main() -> None:
             skip_existing=args.skip_existing,
             dry_run=args.dry_run,
             commit_message=args.commit_message,
+            upload_mode=args.upload_mode,
+            max_retries=args.max_retries,
+            retry_base_seconds=args.retry_base_seconds,
+            retry_max_seconds=args.retry_max_seconds,
         )
 
     print("Summary:")

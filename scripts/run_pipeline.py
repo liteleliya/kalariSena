@@ -14,22 +14,27 @@ def _run(cmd: list[str], cwd: Path | None = None) -> None:
     subprocess.run(cmd, cwd=str(cwd) if cwd else None, check=True)
 
 
-def _find_retarget_csv(output_root: Path, motion_id: str) -> Path:
-    base = output_root / motion_id
-    candidates = [
-        base / f"{motion_id}_retarget_g1.csv",
-        base / f"{motion_id}_retarget_g1_from_bvh.csv",
-    ]
-    for cand in candidates:
-        if cand.exists():
-            return cand
+def _find_retarget_csv(output_root: Path, motion_id: str, fallback_id: str | None = None) -> Path:
+    ids = [motion_id]
+    if fallback_id and fallback_id not in ids:
+        ids.append(fallback_id)
 
-    matches = list(output_root.rglob(f"{motion_id}_retarget_g1*.csv"))
-    if matches:
-        return matches[0]
+    for motion_key in ids:
+        base = output_root / motion_key
+        candidates = [
+            base / f"{motion_key}_retarget_g1.csv",
+            base / f"{motion_key}_retarget_g1_from_bvh.csv",
+        ]
+        for cand in candidates:
+            if cand.exists():
+                return cand
+
+        matches = list(output_root.rglob(f"{motion_key}_retarget_g1*.csv"))
+        if matches:
+            return matches[0]
 
     raise FileNotFoundError(
-        f"Retarget CSV not found under {output_root}. Expected {candidates[0]}"
+        f"Retarget CSV not found under {output_root}. Tried ids: {', '.join(ids)}"
     )
 
 
@@ -70,6 +75,7 @@ def main() -> None:
         raise SystemExit(f"Video not found: {video_path}")
 
     motion_id = args.motion_id or video_path.stem
+    fallback_id = video_path.stem
 
     output_root = Path(args.output_root).expanduser()
     if not output_root.is_absolute():
@@ -96,6 +102,8 @@ def main() -> None:
             "--output_root",
             str(output_root),
         ]
+        if args.motion_id:
+            cmd.extend(["--video-name", motion_id])
         if not args.no_retarget:
             cmd.append("--retarget")
         if args.ckpt:
@@ -114,7 +122,7 @@ def main() -> None:
     if args.angles_rad:
         args.angles_deg = False
 
-    retarget_csv = _find_retarget_csv(output_root, motion_id)
+    retarget_csv = _find_retarget_csv(output_root, motion_id, fallback_id=fallback_id)
 
     annotate_script = ROOT / "scripts" / "annotate_motion_library.py"
     if not annotate_script.exists():

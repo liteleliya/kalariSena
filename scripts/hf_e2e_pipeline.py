@@ -46,6 +46,11 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--no-retarget", action="store_true")
     parser.add_argument("--skip-existing-motion", action="store_true")
     parser.add_argument("--continue-on-error", action="store_true")
+    parser.add_argument(
+        "--preserve-subdirs",
+        action="store_true",
+        help="Preserve dataset subfolder layout under output_root to avoid name collisions.",
+    )
 
     parser.add_argument("--remote-retarget-prefix", default="retargeted_g1")
     parser.add_argument("--skip-existing-remote", action="store_true")
@@ -79,14 +84,26 @@ def _process_all(args: argparse.Namespace) -> None:
     if not video_root.exists():
         raise SystemExit(f"Video directory not found: {video_root}")
 
+    output_root = Path(args.output_root).expanduser()
+    output_root_is_abs = output_root.is_absolute()
+    if not output_root_is_abs:
+        output_root = ROOT / output_root
+
     videos = _find_videos(video_root, args.video_pattern)
     if not videos:
         raise SystemExit(f"No videos matched '{args.video_pattern}' under {video_root}")
 
     failures = 0
     for idx, video in enumerate(videos, start=1):
+        rel_dir = Path(".")
+        if args.preserve_subdirs:
+            rel_dir = video.relative_to(video_root).parent
+
+        per_video_root = output_root / rel_dir
+        output_root_arg = per_video_root if output_root_is_abs else Path(args.output_root) / rel_dir
+
         motion_id = video.stem
-        expected_csv = ROOT / args.output_root / motion_id / f"{motion_id}_retarget_g1.csv"
+        expected_csv = per_video_root / motion_id / f"{motion_id}_retarget_g1.csv"
 
         if args.skip_existing_motion and expected_csv.exists():
             print(f"[{idx}/{len(videos)}] Skip existing motion: {motion_id}")
@@ -100,7 +117,7 @@ def _process_all(args: argparse.Namespace) -> None:
             "--motion-id",
             motion_id,
             "--output-root",
-            args.output_root,
+            str(output_root_arg),
             "--gemx-dir",
             args.gemx_dir,
             "--urdf",
