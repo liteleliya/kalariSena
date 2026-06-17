@@ -4,11 +4,46 @@ This module is the sole source of truth for CoM, centroidal momentum, and foot
 frame computations. All other modules must import from here.
 """
 
-# TODO: Run the URDF diagnostics and paste the real outputs here.
-# G1 URDF diagnostics (from: python -c "import pinocchio as pin; ...")
-# nq=TODO, nv=TODO
-# Foot frames found: TODO
-# Full frame list: TODO
+# G1 URDF diagnostics (FreeFlyer model)
+#
+# nq = 36
+# nv = 35
+#
+# Foot frames found:
+#   left_ankle_roll_link
+#   right_ankle_roll_link
+#
+# Joint names:
+#   root_joint
+#   left_hip_pitch_joint
+#   left_hip_roll_joint
+#   left_hip_yaw_joint
+#   left_knee_joint
+#   left_ankle_pitch_joint
+#   left_ankle_roll_joint
+#   right_hip_pitch_joint
+#   right_hip_roll_joint
+#   right_hip_yaw_joint
+#   right_knee_joint
+#   right_ankle_pitch_joint
+#   right_ankle_roll_joint
+#   waist_yaw_joint
+#   waist_roll_joint
+#   waist_pitch_joint
+#   left_shoulder_pitch_joint
+#   left_shoulder_roll_joint
+#   left_shoulder_yaw_joint
+#   left_elbow_joint
+#   left_wrist_roll_joint
+#   left_wrist_pitch_joint
+#   left_wrist_yaw_joint
+#   right_shoulder_pitch_joint
+#   right_shoulder_roll_joint
+#   right_shoulder_yaw_joint
+#   right_elbow_joint
+#   right_wrist_roll_joint
+#   right_wrist_pitch_joint
+#   right_wrist_yaw_joint
 
 from __future__ import annotations
 
@@ -147,11 +182,12 @@ class PinocchioWrapper:
     """Lightweight Pinocchio wrapper for G1 kinematics and dynamics."""
 
     # Optional overrides if auto-detection fails.
-    DEFAULT_LEFT_FOOT_FRAMES: list[str] = []
-    DEFAULT_RIGHT_FOOT_FRAMES: list[str] = []
+    DEFAULT_LEFT_FOOT_FRAMES: list[str] = ["left_ankle_roll_link"]
+    DEFAULT_RIGHT_FOOT_FRAMES: list[str] = ["right_ankle_roll_link"]
 
     def __init__(self, urdf_path: str):
-        self.model = pin.buildModelFromUrdf(urdf_path)
+        # Note: we use JointModelFreeFlyer() here, which adds a floating base to the model.
+        self.model = pin.buildModelFromUrdf(urdf_path, pin.JointModelFreeFlyer())
         self.data = self.model.createData()
         self._frame_names = [f.name for f in self.model.frames]
 
