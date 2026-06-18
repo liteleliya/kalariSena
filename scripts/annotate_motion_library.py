@@ -32,6 +32,7 @@ import os
 import sys
 from pathlib import Path
 from typing import Any
+from scipy.signal import savgol_filter, argrelmin, argrelmax
 
 import numpy as np
 
@@ -210,6 +211,83 @@ def _load_npz_if_exists(path: Path) -> dict[str, Any]:
             data[k] = npz[k]
     return data
 
+G = 9.81
+VEL_THRESH = 0.01
+
+def correct_root_height(root_z: np.ndarray,
+                        vel_thresh: float = VEL_THRESH) -> np.ndarray:
+    """
+    KungFuAthlete Algorithm 1:
+    Root Height Drift Correction with Parabolic Jump Reconstruction.
+    """
+
+    T = len(root_z)
+
+    P = root_z.copy()
+    P_dot = np.diff(P, append=P[-1])
+
+    P_hat = np.zeros_like(P)
+
+    P_hat[0] = max(P[0], 0.0)
+
+    for t in range(1, T):
+        if P_dot[t - 1] > vel_thresh:
+            P_hat[t] = P_hat[t - 1] + P_dot[t - 1]
+        else:
+            P_hat[t] = P_hat[t - 1]
+
+    local_max = argrelmax(P, order=3)[0]
+    local_min = argrelmin(P, order=3)[0]
+
+    for t_min in local_min:
+        P_hat[t_min] = max(P[t_min], 0.0)
+
+    for t_s in local_max:
+        candidates = local_min[local_min > t_s]
+
+        if len(candidates) == 0:
+            continue
+
+        t_e = candidates[0]
+
+        y0 = P_hat[t_s]
+        y1 = P_hat[t_e]
+
+        if y0 <= y1:
+            continue
+
+        T_flight = np.sqrt(2.0 * (y0 - y1) / G)
+
+        N = t_e - t_s - 1
+
+        for k in range(1, N + 1):
+            dt = (k / (N + 1)) * T_flight
+            P_hat[t_s + k] = y0 - 0.5 * G * dt * dt
+
+    return np.maximum(P_hat, 0.0)
+
+
+def smooth_array(arr: np.ndarray) -> np.ndarray:
+    T = arr.shape[0]
+
+    window = max(T // 10, 5)
+
+    if window % 2 == 0:
+        window += 1
+
+    if window >= T:
+        window = T - 1 if T % 2 == 0 else T
+
+    if window < 5:
+        return arr
+
+    return savgol_filter(
+        arr,
+        window_length=window,
+        polyorder=3,
+        axis=0,
+    )
+
 
 def _build_q_dq(
     df: "pd.DataFrame",
@@ -236,12 +314,21 @@ def _build_q_dq(
     root_pos = df[["root_translateX", "root_translateY", "root_translateZ"]].to_numpy()
     root_pos = root_pos * float(pos_scale)
 
+    # KungFuAthlete root-height correction
+    root_pos[:, 2] = correct_root_height(root_pos[:, 2])
+
+    # Smooth root trajectory
+    root_pos = smooth_array(root_pos)
+
     root_euler = df[["root_rotateX", "root_rotateY", "root_rotateZ"]].to_numpy()
     root_quat_xyzw = _euler_to_quat_xyzw(root_euler, euler_order, degrees=angles_deg)
 
     joint_pos = df[joint_cols].to_numpy()
     if angles_deg:
         joint_pos = np.deg2rad(joint_pos)
+
+    # Smooth joint angles before velocities
+    joint_pos = smooth_array(joint_pos)
 
     dt = 1.0 / float(fps)
     root_lin_vel = np.gradient(root_pos, dt, axis=0)
