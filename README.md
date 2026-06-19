@@ -189,11 +189,57 @@ Use this checklist when setting up on a new machine:
 ## Training scripts
 
 These are stubs until your PPO loop is wired:
+- scripts/train_tracking.py
 - scripts/train_com.py
 - scripts/train_momentum.py
 - scripts/train_fall.py
 - scripts/train_recovery.py
 - scripts/train_switch.py
+
+## Stage A: G1 Motion Tracking
+
+Stage A reuses `unitree_rl_mjlab`'s existing Unitree G1 tracking task. The
+retargeted Kalari NPZ files first need to be exported into the motion-file
+contract expected by that task:
+
+```bash
+python scripts/export_stage_a_motions.py \
+  --input-dir data/motions_retargeted_raw \
+  --output-dir unitree_rl_mjlab/src/assets/motions/g1/kalari \
+  --device cpu
+```
+
+This writes files such as:
+
+```text
+unitree_rl_mjlab/src/assets/motions/g1/kalari/KS-007.npz
+```
+
+Those exported files contain `joint_pos`, `joint_vel`, `body_pos_w`,
+`body_quat_w`, `body_lin_vel_w`, and `body_ang_vel_w`, which are the arrays
+loaded by `unitree_rl_mjlab`'s tracking command.
+
+Then launch Stage A PPO tracking:
+
+```bash
+python scripts/train_tracking.py \
+  --config configs/tracking.yaml
+```
+
+For a quick smoke run, override the training size:
+
+```bash
+python scripts/train_tracking.py \
+  --motion-file unitree_rl_mjlab/src/assets/motions/g1/kalari/KS-007.npz \
+  --num-envs 16 \
+  --max-iterations 1
+```
+
+Notes:
+- `unitree_rl_mjlab` must be installed first: `cd unitree_rl_mjlab && pip install -e .`
+- The local launcher runs `unitree_rl_mjlab/scripts/train.py` with task
+  `Unitree-G1-Tracking-No-State-Estimation`.
+- Stage B/C should not start until Stage A produces a usable `tracking_best.pt`.
 
 ## Repo layout
 
