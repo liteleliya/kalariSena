@@ -4,6 +4,8 @@
 # NPZ keys (from: python -c "import numpy as np; ...")
 # TODO
 
+## Set -pos-scale=0.01 in the retargeting step, so that the root positions are in meters in the CSVs. This will make the contact annotation more meaningful.
+
 # Step 3 CSV diagnostics (from: python -c "import pandas as pd; ...")
 # File: cloud_outputs/otta_kaal_cloudgpu_20260417/ks/ks_retarget_g1.csv
 # Columns: ['Frame', 'root_translateX', 'root_translateY', 'root_translateZ',
