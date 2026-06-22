@@ -3,6 +3,9 @@ __pycache__/
 *.pyc
 .DS_Store
 
+# Local documentation / learning notes
+docs/
+
 # Generated outputs
 cloud_outputs/
 outputs/
@@ -10,9 +13,13 @@ data/motions_retargeted/
 data/splits/
 models/
 
+# Motion data (large CSV/NPZ; not version-controlled)
+Data/
+
 # External repos pulled by installer
 GEM-X/
 unitree_rl_mjlab/
+unitree_ros/
 
 # Media / logs
 *.mp4
