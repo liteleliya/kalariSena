@@ -9,14 +9,18 @@ Flip the booleans in the TOGGLES block to choose which stages run:
     2) CSV -> NPZ     final corrected CSV -> .npz (viewer format)
     3) VISUALIZE      play the .npz on the G1 in the meshcat 3D viewer
 
-Run it with the project's virtual-env Python:
+Run it with the project's virtual-env Python (from the repo root):
 
-    .\\.venv\\Scripts\\python.exe run_all.py
+    .\\.venv\\Scripts\\python.exe preprocessing\\run_all.py
 """
 
 import subprocess
 import sys
 from pathlib import Path
+
+# Locations: this file lives in <repo>/preprocessing/ ; data lives at <repo>/.
+HERE = Path(__file__).resolve().parent     # .../preprocessing
+ROOT = HERE.parent                         # repo root
 
 # ============================ TOGGLES ===============================
 # Turn each stage on/off here. They run top-to-bottom.
@@ -29,8 +33,8 @@ LOOP_VIEWER = True         # True = loop the motion in the 3D viewer
 # ===================================================================
 
 # ============================ CONFIG ===============================
-INPUT_CSV = Path("Data/Urumi_Sword_retarget_g1.csv")
-URDF      = Path("unitree_ros/robots/g1_description/g1_29dof.urdf")
+INPUT_CSV = ROOT / "Data/Urumi_Sword_retarget_g1.csv"
+URDF      = ROOT / "unitree_ros/robots/g1_description/g1_29dof.urdf"
 FPS       = 30
 
 # The pipeline's final output is the Step 7 (Savitzky-Golay) CSV.
@@ -42,12 +46,16 @@ PY = sys.executable        # the same (venv) Python that runs this file
 
 
 def run(script: str, *script_args):
-    """Run one pipeline script with the venv Python and stop on failure."""
-    cmd = [PY, script, *[str(a) for a in script_args]]
+    """Run one pipeline script (found next to this file) with the venv Python.
+
+    The working directory is the repo root so that any relative output paths
+    (e.g. ``outputs/``) land in the right place.
+    """
+    cmd = [PY, str(HERE / script), *[str(a) for a in script_args]]
     print("\n" + "=" * 70)
     print(">>> " + " ".join(cmd))
     print("=" * 70)
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True, cwd=ROOT)
 
 
 def main():
