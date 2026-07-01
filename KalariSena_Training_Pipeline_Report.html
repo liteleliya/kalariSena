@@ -1,0 +1,380 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>KalariSena Technical Summary</title>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<style>
+body{font-family:Arial,sans-serif;max-width:1000px;margin:auto;line-height:1.65;padding:30px}
+h1,h2,h3{color:#1f4e79}
+pre{background:#f4f4f4;padding:10px;border-radius:6px}
+.note{background:#eef7ff;border-left:4px solid #1f4e79;padding:10px}
+table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:8px}
+</style>
+</head>
+<body>
+<h1>KalariSena: Motion Processing, RL Training & Instruction-Controlled Humanoid</h1>
+
+<h2>1. Motion Processing Pipeline</h2>
+<pre>
+Videos
+  ↓
+GEM-X Retargeting
+  ↓
+Unitree G1 CSV
+  ↓
+Motion Preprocessing
+  ↓
+NPZ Motion Library
+  ↓
+RL Training
+</pre>
+
+<h2>2. Motion Preprocessing (Summary)</h2>
+<ul>
+<li>Root-height correction</li>
+<li>Ground penetration correction</li>
+<li>Jump detection and gravity-based parabolic reconstruction</li>
+<li>Savitzky-Golay smoothing</li>
+<li>Motion validation</li>
+<li>NPZ generation</li>
+</ul>
+
+<h2>3. RL Stage A – Motion Imitation</h2>
+
+<h3>Problem Formulation</h3>
+<p>The imitation problem is modeled as a Markov Decision Process</p>
+
+<p>\[
+\mathcal{M}=(\mathcal{S},\mathcal{A},P,R,\gamma)
+\]</p>
+
+<p>where the policy receives the current robot state together with a reference motion and predicts the next robot action.</p>
+
+<h3>Observation</h3>
+<p>\[
+o_t=\{q_t,\dot q_t,x^{root}_t,R^{root}_t,q^{ref}_t,\dot q^{ref}_t\}
+\]</p>
+
+<ul>
+<li><b>q</b>: joint positions</li>
+<li><b>\(\dot q\)</b>: joint velocities</li>
+<li><b>Root pose</b>: floating base position and orientation</li>
+<li><b>Reference state</b>: current frame of the NPZ motion</li>
+</ul>
+
+<h3>Policy</h3>
+<p>\[
+a_t=\pi_\theta(o_t)
+\]</p>
+
+<pre>
+Observation
+      ↓
+ Neural Network
+      ↓
+ Actor Policy
+      ↓
+ Joint Actions
+</pre>
+
+<h3>Optimization Objective</h3>
+
+<p>\[
+J(\theta)=
+\mathbb{E}
+\left[
+\sum_{t=0}^{T}
+\gamma^t r_t
+\right]
+\]</p>
+
+<p>The objective is to maximize the expected discounted reward.</p>
+
+<h3>Reward Function</h3>
+
+<p>\[
+r_t=
+w_p r_{pose}
++w_r r_{root}
++w_v r_{vel}
++w_c r_{contact}
++w_e r_{energy}
+\]</p>
+
+<table>
+<tr><th>Reward</th><th>Mathematical Form</th><th>Purpose</th></tr>
+<tr><td>Pose</td><td>\(r_{pose}=e^{-||q-q_{ref}||^2}\)</td><td>Track joint motion</td></tr>
+<tr><td>Root</td><td>\(r_{root}=e^{-||x-x_{ref}||^2}\)</td><td>Track floating base</td></tr>
+<tr><td>Velocity</td><td>\(r_{vel}=e^{-||\dot q-\dot q_{ref}||^2}\)</td><td>Smooth tracking</td></tr>
+<tr><td>Contact</td><td>Foot-contact consistency</td><td>Prevent slipping</td></tr>
+<tr><td>Energy</td><td>Action penalty</td><td>Avoid unnecessary effort</td></tr>
+</table>
+
+<h3>Training Pipeline</h3>
+
+<pre>
+Motion Library
+      ↓
+Random Motion
+      ↓
+Random Starting Frame
+      ↓
+Reference Trajectory
+      ↓
+RL Environment
+      ↓
+Policy Update
+</pre>
+
+<div class="note">
+<b>Training Challenge</b><br>
+Dynamic Kalarisena motions generated many simultaneous contacts. MuJoCo contact-buffer
+overflows were resolved by increasing <b>njmax</b>, <b>nconmax</b> and
+<b>contact_argmax</b>, enabling stable training of complex motions.
+</div>
+
+<h2>4. Future RL Stages</h2>
+
+<h3>Stage B – Recoverability-aware CoM Control</h3>
+
+<p>Instead of only tracking motion, the controller should maintain a recoverable Center of Mass.</p>
+
+<p>\[
+CoM=\frac{\sum_i m_i x_i}{\sum_i m_i}
+\]</p>
+
+<p>\[
+r_{CoM}=\exp(-||CoM-CoM_{target}||^2)
+\]</p>
+
+<p>This reward encourages stable balance during deep stances, kicks and single-leg support.</p>
+
+<h3>Stage C – Centroidal Momentum Regulation</h3>
+
+<p>Dynamic martial motions generate significant angular momentum.</p>
+
+<p>\[
+h=A_G(q)\dot q
+\]</p>
+
+<p>\[
+r_{mom}=-||h-h_{desired}||
+\]</p>
+
+<p>This reduces instability during spins, pivots and jumps.</p>
+
+<h3>Stage D – Fall Detection and Recovery</h3>
+
+<p>Estimate the probability of falling using torso orientation, CoM displacement and angular velocity.</p>
+
+<p>\[
+P(fall)>\tau
+\]</p>
+
+<p>If the threshold is exceeded, switch from the nominal tracking policy to a recovery controller before resuming motion execution.</p>
+
+<h3>Stage E – Unified Motion Policy</h3>
+
+<p>Instead of training one policy per motion, train a single policy on the complete NPZ motion library.</p>
+
+<pre>
+Episode Reset
+      ↓
+Random NPZ
+      ↓
+Random Frame
+      ↓
+Reference Motion
+      ↓
+Unified Policy
+</pre>
+
+<h2>5. Stage F – Instruction-Controlled Robot</h2>
+
+<h3>Motion Dataset</h3>
+
+<p>Create a semantic dataset containing</p>
+
+<pre>
+NPZ Motion
++
+Natural Language Description
++
+Multiple Paraphrases
+</pre>
+
+<p>Example:</p>
+
+<ul>
+<li>spin_kick_001.npz</li>
+<li>"Fast spinning kick using the right leg."</li>
+<li>"Perform a spinning roundhouse kick."</li>
+<li>"Rotate and strike with the right leg."</li>
+</ul>
+
+<h3>Embedding Generation</h3>
+
+<p>Each description is embedded using a Sentence Transformer.</p>
+
+<p>\[
+e_i = Encoder(text_i)
+\]</p>
+
+<h3>Motion Retrieval</h3>
+
+<p>For an English instruction, compute cosine similarity</p>
+
+<p>\[
+sim(e_q,e_i)=
+\frac{e_q^Te_i}
+{\|e_q\|\|e_i\|}
+\]</p>
+
+<p>The NPZ with the highest similarity is retrieved.</p>
+
+<pre>
+English Instruction
+          ↓
+Sentence Transformer
+          ↓
+Query Embedding
+          ↓
+Cosine Similarity
+          ↓
+Retrieve NPZ Motion
+          ↓
+Best RL Checkpoint
+          ↓
+Unitree G1
+</pre>
+
+<h3>Future Extension</h3>
+<p>The retrieval module can later be replaced by a Kimodo-style text-to-motion generator that directly synthesizes new trajectories conditioned on language before execution by the RL controller.</p>
+
+
+<hr>
+
+<h2>6. Suggested Improvement: Motion Library Granularity</h2>
+
+<div class="note">
+<h3>Current Challenge</h3>
+
+<p>
+The current Kalarisena videos typically contain <b>long sequences of multiple martial-art motions</b>
+performed continuously (e.g., running → jump → spinning kick → cartwheel → stance transition).
+While this preserves the natural choreography of Kalaripayattu, it also introduces several practical
+challenges during the motion reconstruction and RL training pipeline.
+</p>
+
+<ul>
+<li>Long videos accumulate reconstruction drift over time.</li>
+<li>Changing camera viewpoints and self-occlusions introduce pose estimation artifacts.</li>
+<li>Errors in one segment propagate into later segments.</li>
+<li>Complex transitions often produce noisy root trajectories, foot sliding and contact inconsistencies.</li>
+<li>The resulting NPZ motions become more difficult for the RL policy to imitate accurately.</li>
+</ul>
+
+<h3>Proposed Direction</h3>
+
+<p>
+Inspired by the <b>KungFuBot Athlete Dataset</b>, which is constructed from a large collection of
+individual motion clips rather than long continuous routines, we propose investigating a more
+granular motion library for Kalaripayattu.
+</p>
+
+<p>
+Instead of treating one long recording as a single training sample, each video can be segmented
+into a collection of elementary motion primitives.
+</p>
+
+<pre>
+Original Video
+
+Running
+   ↓
+Jump
+   ↓
+Spinning Kick
+   ↓
+Cartwheel
+   ↓
+Guard Stance
+
+↓
+
+Segmented Motion Library
+
+running.npz
+jump.npz
+spinning_kick.npz
+cartwheel.npz
+guard_stance.npz
+</pre>
+
+<p>
+Each motion primitive can then be independently:
+</p>
+
+<ul>
+<li>retargeted using GEM-X,</li>
+<li>preprocessed into a clean NPZ trajectory,</li>
+<li>validated for quality, and</li>
+<li>added to a unified motion library for RL training.</li>
+</ul>
+
+<h3>Potential Advantages</h3>
+
+<ul>
+<li>Higher-quality motion reconstruction due to shorter clips.</li>
+<li>Reduced accumulation of retargeting and pose-estimation errors.</li>
+<li>Cleaner contact estimation and root trajectories.</li>
+<li>Improved RL convergence through more consistent demonstrations.</li>
+<li>Easier annotation with natural-language descriptions for the instruction-controlled robot.</li>
+<li>A richer and more reusable library of atomic Kalaripayattu skills.</li>
+</ul>
+
+<h3>Will This Lose the Essence of Kalaripayattu?</h3>
+
+<p>
+Not necessarily. In fact, this can be viewed as a <b>hierarchical representation</b> of
+Kalaripayattu rather than a simplification of it.
+</p>
+
+<p>
+The low-level motion library would consist of high-quality primitive skills
+(e.g., jump, spinning kick, cartwheel, horse stance, defensive block), while
+longer Kalaripayattu routines would be represented as <b>ordered sequences of these primitives</b>.
+This preserves the expressive nature of the martial art while significantly improving the quality
+of the learned motion representations.
+</p>
+
+<pre>
+Primitive Motion Library
+        ↓
+Running
+Jump
+Spinning Kick
+Cartwheel
+Guard Stance
+        ↓
+Unified RL Policy
+        ↓
+High-Level Sequencer / Language Planner
+        ↓
+Complete Kalaripayattu Routine
+</pre>
+
+<p>
+This hierarchical formulation offers the best of both worlds: robust RL training on clean,
+well-segmented demonstrations, while still enabling the robot to execute complete
+Kalaripayattu routines by composing multiple learned skills. It also naturally aligns with
+the future language-controlled framework, where an instruction such as
+<i>"run forward, perform a spinning kick, then finish in a guard stance"</i>
+can be decomposed into a sequence of retrieved motion primitives.
+</p>
+</div>
+
+</body></html>
+

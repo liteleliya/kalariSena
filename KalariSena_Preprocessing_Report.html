@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>KalariSena — Root-Height Preprocessing Summary</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; line-height: 1.5;
+         color: #1b1b1b; max-width: 880px; margin: 24px auto; padding: 0 16px; }
+  h1 { font-size: 1.5rem; border-bottom: 2px solid #ddd; padding-bottom: 6px; }
+  h2 { font-size: 1.15rem; margin-top: 1.6em; }
+  code { background: #f3f3f3; padding: 1px 5px; border-radius: 4px; font-size: 0.92em; }
+  pre  { background: #f6f8fa; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.86rem; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 0.92rem; }
+  th, td { border: 1px solid #ddd; padding: 6px 9px; text-align: left; vertical-align: top; }
+  th { background: #f3f3f3; }
+  .step { margin: 10px 0; }
+  .step b { color: #0b4f8a; }
+  .res { color: #2a7a2a; }
+  .note { background: #fbf7e8; border-left: 4px solid #e0c14c; padding: 8px 12px; border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<h1>KalariSena — Root-Height Preprocessing Summary</h1>
+
+<p>Pipeline applied to retargeted Unitree G1 (29-DOF) motion
+(<code>Urumi_Sword_retarget_g1.csv</code>, 1321 frames, 30 fps). Implements paper
+&sect;3.2.1&ndash;3.3. Units: translations cm&rarr;m, angles deg&rarr;rad,
+<code>g = 9.81 m/s&sup2;</code>.</p>
+
+<p><code>z_min(q)</code> = lowest body point vs. pelvis (forward kinematics).
+Grounded height = <code>&minus;z_min</code>.
+Clearance = <code>pelvis_height + z_min</code> (0 = foot on floor, &lt;0 = penetration).</p>
+
+<h2>Chosen parameter values</h2>
+<table>
+  <tr><th>Param</th><th>Step</th><th>Value</th><th>Why</th></tr>
+  <tr><td><code>tau</code></td><td>1</td><td><b>0.0015 m/frame</b></td><td>velocity gate for drift; just above jitter floor (~1&ndash;2 mm/frame)</td></tr>
+  <tr><td><code>peak_prominence</code></td><td>1</td><td><b>0.02 m</b></td><td>ignore &lt;2 cm bumps when finding contacts/apexes</td></tr>
+  <tr><td><code>contact_threshold</code></td><td>2</td><td><b>0.04 m</b></td><td>foot within 4 cm = contact (raised from 3 cm for deep stances)</td></tr>
+  <tr><td><code>tau3</code></td><td>3</td><td><b>0.003 m/frame</b></td><td>jitter gate (magnitude form, both directions)</td></tr>
+  <tr><td><code>airborne_threshold</code></td><td>4</td><td><b>0.06 m</b></td><td>clearance &gt;6 cm = real jump (not squat/stand)</td></tr>
+  <tr><td><code>sg_window</code></td><td>7</td><td><b>31</b> (odd)</td><td>smoothing window; paper's 1/10&asymp;131 over-smooths this long clip</td></tr>
+  <tr><td><code>sg_polyorder</code></td><td>7</td><td><b>3</b></td><td>cubic local fit</td></tr>
+</table>
+
+<p class="note">Values were set from a <b>calibration</b> of our data (velocity /
+clearance histograms + Otsu). Otsu's automatic splits (0.0065 / 0.137 / 0.0152)
+were too high because fast martial-arts motion has no clean jitter-vs-motion gap,
+so we kept the velocity gates low and only nudged the contact band up.</p>
+
+<h2>Steps</h2>
+
+<p class="step"><b>1 &middot; Root Node Height Drift Correction (&sect;3.2.1).</b>
+Removes slow pelvis float/sink and rebuilds jumps. Velocity
+<code>P&#775;(t)=P(t+1)&minus;P(t)</code>; anchor first frame to grounded height;
+at contacts snap to <code>&minus;z_min</code>; otherwise
+<code>P&#770;(t)=P&#770;(t&minus;1)+&#120793;[P&#775;(t&minus;1)&gt;&tau;]&middot;P&#775;(t&minus;1)</code>
+(add only genuine rises); jump descent filled with a gravity parabola; clamp penetration.
+<span class="res"><i>Result:</i> drift ~1.2 m &rarr; steady ~0.75 m; 3&rarr;0 penetrating frames.</span></p>
+
+<p class="step"><b>2 &middot; Minimum Body Height Constraint (&sect;3.2.2, eq 3&ndash;5).</b>
+<code>z_min(q)=min&#7522; z&#7522;(q)</code>. Contact phases:
+<code>p&#770;=p&minus;z_min</code> &rarr; lowest part exactly on floor (<code>=0</code>);
+airborne: keep but <code>&ge;0</code>.
+<span class="res"><i>Result:</i> 1001/1321 contact frames flattened to exactly 0; min clearance 0.</span></p>
+
+<p class="step"><b>3 &middot; Temporal Propagation w/ Velocity Thresholding (&sect;3.2.3, eq 6&ndash;7).</b>
+De-jitter in time: <code>P&#770;(t)=P&#770;(t&minus;1)+P&#775;(t&minus;1)</code> only if
+<code>|P&#775;|&gt;&tau;&#8323;</code>, else hold; contacts stay anchored (noise-gate idea).
+<span class="res"><i>Result:</i> 149 jitter frames suppressed; temporally smooth.</span></p>
+
+<p class="step"><b>4 &middot; Jump Phase Detection (&sect;3.2.4, eq 8).</b>
+Local maxima (<code>P'=0, P''&lt;0</code>, apex) / minima (<code>P'=0, P''&gt;0</code>, landing).
+A segment is a real jump only if clearance <code>&gt; airborne_threshold</code>
+(objective skip set for squats/stands).
+<span class="res"><i>Result:</i> 13 true jump segments found; mid-sequence bobs skipped.</span></p>
+
+<p class="step"><b>5 &middot; Parabolic Reconstruction of Jumps (&sect;3.2.5, eq 9&ndash;12).</b>
+Per jump keep apex <code>y&#8320;</code>, landing <code>y&#8321;</code>; free-fall
+<code>y(t)=y&#8320;&minus;&frac12;g t&sup2;</code>; airtime
+<code>T=&radic;(2(y&#8320;&minus;y&#8321;)/g)</code>; sample
+<code>&Delta;t&#8342;=k/(N+1)&middot;T</code>; ascent = symmetric mirror.
+<span class="res"><i>Result:</i> 174 frames replaced by clean gravity arcs.</span></p>
+
+<p class="step"><b>6 &middot; Final Ground Penetration Correction (&sect;3.2.6, eq 13).</b>
+Safeguard: <code>if z_min(q&#770;)&lt;0 &rarr; p&#770;=p&minus;z_min</code>.
+Guarantees <code>z_min&ge;0</code> everywhere.
+<span class="res"><i>Result:</i> 0 frames needed fixing (already clean).</span></p>
+
+<p class="step"><b>7 &middot; Savitzky&ndash;Golay Smoothing (&sect;3.3).</b>
+Per-channel SG filter on all 35 channels (root + 29 joints): local polynomial fit,
+removes jitter but <b>preserves peaks</b> (apexes/contacts). Window <code>w</code> odd, order <code>p</code>.
+<span class="res"><i>Result:</i> final smooth CSV; jump peaks and contacts preserved.</span></p>
+
+<h2>Pipeline</h2>
+<pre>raw &rarr; S1 drift+parabola &rarr; S2 min-body-height &rarr; S3 temporal de-jitter
+    &rarr; S4 jump detect &rarr; S5 parabolic jumps &rarr; S6 penetration clamp &rarr; S7 SG smoothing &rarr; final CSV</pre>
+
+<p>Tooling: <code>yourdfpy</code> (FK, Windows-friendly; Pinocchio has no Windows
+wheel), <code>scipy</code> (<code>find_peaks</code>, <code>savgol_filter</code>),
+<code>meshcat</code> (3D viewer). One-file runner: <code>preprocessing/run_all.py</code>
+(toggle stages with booleans).</p>
+
+</body>
+</html>
