@@ -1,5 +1,5 @@
 task: Unitree-G1-Tracking-No-State-Estimation
-motion_file: unitree_rl_mjlab/src/assets/motions/g1/kalari/KS-007.npz
+motion_file: unitree_rl_mjlab/src/assets/motions/g1/kalari_root_height_only
 
 env:
   num_envs: 4096
@@ -8,6 +8,6 @@ agent:
   max_iterations: 30001
 
 export:
-  input_dir: data/motions_retargeted_raw
-  output_dir: unitree_rl_mjlab/src/assets/motions/g1/kalari
+  input_dir: data/motions_retargeted
+  output_dir: unitree_rl_mjlab/src/assets/motions/g1/kalari_root_height_only
   device: cpu

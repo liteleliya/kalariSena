@@ -28,7 +28,6 @@
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -52,6 +51,40 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.dynamics.pinocchio_wrapper import PinocchioWrapper
+
+G1_JOINT_NAMES = [
+    "left_hip_pitch_joint",
+    "left_hip_roll_joint",
+    "left_hip_yaw_joint",
+    "left_knee_joint",
+    "left_ankle_pitch_joint",
+    "left_ankle_roll_joint",
+    "right_hip_pitch_joint",
+    "right_hip_roll_joint",
+    "right_hip_yaw_joint",
+    "right_knee_joint",
+    "right_ankle_pitch_joint",
+    "right_ankle_roll_joint",
+    "waist_yaw_joint",
+    "waist_roll_joint",
+    "waist_pitch_joint",
+    "left_shoulder_pitch_joint",
+    "left_shoulder_roll_joint",
+    "left_shoulder_yaw_joint",
+    "left_elbow_joint",
+    "left_wrist_roll_joint",
+    "left_wrist_pitch_joint",
+    "left_wrist_yaw_joint",
+    "right_shoulder_pitch_joint",
+    "right_shoulder_roll_joint",
+    "right_shoulder_yaw_joint",
+    "right_elbow_joint",
+    "right_wrist_roll_joint",
+    "right_wrist_pitch_joint",
+    "right_wrist_yaw_joint",
+]
+
+G1_JOINT_COLS = [f"{name}_dof" for name in G1_JOINT_NAMES]
 
 VALID_FAMILIES = [
     "stable_stance",
@@ -211,6 +244,114 @@ def _load_npz_if_exists(path: Path) -> dict[str, Any]:
     return data
 
 
+def _apply_preprocessing(df: "pd.DataFrame", args: argparse.Namespace) -> "pd.DataFrame":
+    """Run preprocessing on a GEM-X CSV dataframe.
+
+    The preprocessing code operates on CSV-space quantities: root translations in
+    centimeters and angles in degrees. By default this only corrects
+    ``root_translateZ`` with Step 1 root-height correction; the older full
+    pipeline is still available with ``--preprocess-mode full``.
+    """
+    try:
+        import yourdfpy
+        from preprocessing.pre_process import (
+            CM_TO_M,
+            DEG_TO_RAD,
+            build_joint_matrix,
+            compute_z_offsets,
+            root_height_drift_correction,
+        )
+        if args.preprocess_mode == "full":
+            from preprocessing.pre_process import (
+                detect_jump_segments,
+                final_ground_penetration_correction,
+                minimum_body_height_constraint,
+                parabolic_airborne_reconstruction,
+                savitzky_golay_smoothing,
+                temporal_propagation_velocity_threshold,
+            )
+    except Exception as exc:
+        raise SystemExit(
+            "Preprocessing requested, but preprocessing dependencies could not be imported. "
+            "Install yourdfpy/matplotlib/scipy or rerun with --no-preprocess.\n"
+            f"Original import error: {exc}"
+        ) from exc
+
+    urdf_path = Path(args.preprocess_urdf or args.urdf)
+    if not urdf_path.exists():
+        raise SystemExit(f"Preprocess URDF not found: {urdf_path}")
+
+    print(f"  preprocessing root height with {urdf_path}")
+    urdf = yourdfpy.URDF.load(
+        str(urdf_path),
+        load_meshes=True,
+        build_collision_scene_graph=False,
+    )
+
+    joint_cols = [c for c in df.columns if c.endswith("_dof")]
+    joints_rad = build_joint_matrix(df, urdf, joint_cols)
+    root_z_m = df["root_translateZ"].to_numpy(dtype=float) * CM_TO_M
+
+    z_offset = compute_z_offsets(urdf, joints_rad)
+    p1, _ = root_height_drift_correction(
+        root_z_m,
+        z_offset,
+        fps=float(args.fps),
+        tau=float(args.preprocess_tau),
+    )
+    df_out = df.copy()
+    df_out["root_translateZ"] = p1 / CM_TO_M
+
+    if args.preprocess_mode == "root-height":
+        clearance = p1 + z_offset
+        print(
+            "  preprocessing done: "
+            "mode=root-height, "
+            f"min_clearance_after_step1={float(np.min(clearance)):+.4f}m"
+        )
+        assert CM_TO_M > 0 and DEG_TO_RAD > 0
+        return df_out
+
+    p2, info2 = minimum_body_height_constraint(
+        p1,
+        z_offset,
+        contact_threshold=float(args.preprocess_contact_threshold),
+    )
+    p3, _ = temporal_propagation_velocity_threshold(
+        p2,
+        info2["contact_mask"],
+        tau=float(args.preprocess_tau3),
+    )
+    segments, _ = detect_jump_segments(
+        p3,
+        z_offset,
+        airborne_threshold=float(args.preprocess_airborne_threshold),
+    )
+    p5, _ = parabolic_airborne_reconstruction(p3, segments)
+    p6, info6 = final_ground_penetration_correction(p5, z_offset)
+
+    df_out["root_translateZ"] = p6 / CM_TO_M
+    df_out, info7 = savitzky_golay_smoothing(
+        df_out,
+        joint_cols,
+        window=args.preprocess_sg_window,
+        polyorder=int(args.preprocess_sg_polyorder),
+    )
+
+    min_clearance = float(np.min(info6["clearance_after"]))
+    print(
+        "  preprocessing done: "
+        "mode=full, "
+        f"jump_segments={len(segments)}, "
+        f"sg_window={info7['window']}, "
+        f"min_clearance_after_step6={min_clearance:+.4f}m"
+    )
+
+    # Silence lints for imported constants while documenting unit assumptions.
+    assert CM_TO_M > 0 and DEG_TO_RAD > 0
+    return df_out
+
+
 def _build_q_dq(
     df: "pd.DataFrame",
     fps: float,
@@ -231,7 +372,10 @@ def _build_q_dq(
         if col not in df.columns:
             raise ValueError(f"Missing column {col} in CSV")
 
-    joint_cols = [c for c in df.columns if c not in required and c != "Frame"]
+    missing_joint_cols = [col for col in G1_JOINT_COLS if col not in df.columns]
+    if missing_joint_cols:
+        raise ValueError(f"Missing G1 joint columns in CSV: {missing_joint_cols}")
+    joint_cols = list(G1_JOINT_COLS)
 
     root_pos = df[["root_translateX", "root_translateY", "root_translateZ"]].to_numpy()
     root_pos = root_pos * float(pos_scale)
@@ -270,6 +414,9 @@ def _process_csv(
 ) -> tuple[str, str]:
     df = pd.read_csv(csv_path)
     motion_id = _motion_id_from_path(csv_path)
+    if args.preprocess:
+        print(f"[{motion_id}] running preprocessing")
+        df = _apply_preprocessing(df, args)
 
     q, dq, root_pos, root_quat_xyzw, joint_pos, joint_cols = _build_q_dq(
         df,
@@ -330,12 +477,18 @@ def _process_csv(
             "root_pos": root_pos,
             "root_quat_xyzw": root_quat_xyzw,
             "joint_pos": joint_pos,
+            "joint_vel": dq[:, 6 : 6 + joint_pos.shape[1]],
             "joint_cols": np.array(joint_cols, dtype=np.bytes_),
             "contacts": contacts.astype(bool),
             "phase": phase.astype(np.int32),
             "family": np.array(family.encode("utf-8")),
             "fps": np.array(float(args.fps), dtype=np.float32),
             "motion_id": np.array(motion_id.encode("utf-8")),
+            "source_csv": np.array(str(csv_path).encode("utf-8")),
+            "preprocessed": np.array(bool(args.preprocess)),
+            "preprocess_mode": np.array(
+                (args.preprocess_mode if args.preprocess else "none").encode("utf-8")
+            ),
         }
     )
 
@@ -382,20 +535,35 @@ def _write_splits(
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--csv-root", type=str, default="cloud_outputs")
+    parser.add_argument("--csv-root", type=str, default="data/retargeted_g1")
     parser.add_argument("--output-dir", type=str, default="data/motions_retargeted")
     parser.add_argument("--splits-dir", type=str, default="data/splits")
     parser.add_argument("--families-config", type=str, default="configs/motion_families.yaml")
     parser.add_argument("--npz-source-dir", type=str, default=None)
-    parser.add_argument("--urdf", type=str, default="assets/unitree_g1/g1.urdf")
-    parser.add_argument("--fps", type=float, default=30.0)
-    parser.add_argument("--pos-scale", type=float, default=1.0)
+    parser.add_argument("--urdf", type=str, default="assets/unitree_g1/g1_29dof.urdf")
+    parser.add_argument("--fps", type=float, default=50.0)
+    parser.add_argument("--pos-scale", type=float, default=0.01)
     parser.add_argument("--angles-deg", action="store_true", default=True)
     parser.add_argument("--angles-rad", action="store_true", default=False)
     parser.add_argument("--root-euler-order", type=str, default="xyz")
     parser.add_argument("--quat-order", type=str, default="xyzw")
     parser.add_argument("--contact-z-threshold", type=float, default=0.05)
     parser.add_argument("--median-kernel", type=int, default=5)
+    parser.add_argument("--preprocess", action="store_true", default=True)
+    parser.add_argument("--no-preprocess", action="store_false", dest="preprocess")
+    parser.add_argument(
+        "--preprocess-mode",
+        choices=("root-height", "full"),
+        default="root-height",
+        help="Preprocessing depth: root-height only by default, or the older full pipeline.",
+    )
+    parser.add_argument("--preprocess-urdf", type=str, default=None)
+    parser.add_argument("--preprocess-tau", type=float, default=0.0015)
+    parser.add_argument("--preprocess-tau3", type=float, default=0.003)
+    parser.add_argument("--preprocess-contact-threshold", type=float, default=0.04)
+    parser.add_argument("--preprocess-airborne-threshold", type=float, default=0.06)
+    parser.add_argument("--preprocess-sg-window", type=int, default=31)
+    parser.add_argument("--preprocess-sg-polyorder", type=int, default=3)
     parser.add_argument("--include-from-bvh", action="store_true")
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--seed", type=int, default=42)

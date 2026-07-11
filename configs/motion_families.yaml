@@ -1,0 +1,16 @@
+# Fill in the family for each motion manually.
+# Valid families: stable_stance, single_support, translational,
+#                 rotational, explosive_strike, compound, recovery_critical
+Urumi_Sword: unlabeled
+KS-007: unlabeled
+KS-071: unlabeled
+KS-076: unlabeled
+KS-005: unlabeled
+KS-006: unlabeled
+KS-008: unlabeled
+KS-009: unlabeled
+KS-073: unlabeled
+KS-074_pt1: unlabeled
+KS-074_pt2: unlabeled
+Neeki_Ammarnnu: unlabeled
+Otta_Kaal: unlabeled

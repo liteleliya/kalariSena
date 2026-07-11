@@ -198,13 +198,31 @@ These are stubs until your PPO loop is wired:
 
 ## Stage A: G1 Motion Tracking
 
-Stage A reuses `unitree_rl_mjlab`'s existing Unitree G1 tracking task. The
-retargeted Kalari NPZ files first need to be exported into the motion-file
-contract expected by that task:
+First convert GEM-X retarget CSVs into the canonical Kalari motion-library NPZ
+contract. This step runs the root-height preprocessing pipeline by default and
+saves `q`, `dq`, root pose, joint state, contacts, phase, family, FPS, and
+motion metadata:
+
+```bash
+python scripts/annotate_motion_library.py \
+  --csv-root data/retargeted_g1 \
+  --output-dir data/motions_retargeted \
+  --splits-dir data/splits \
+  --fps 50 \
+  --pos-scale 0.01 \
+  --urdf assets/unitree_g1/g1_29dof.urdf
+```
+
+Use `--no-preprocess` only for fast debugging when the preprocessing dependencies
+or mesh assets are unavailable.
+
+Stage A then reuses `unitree_rl_mjlab`'s existing Unitree G1 tracking task. The
+canonical Kalari NPZ files are exported into the motion-file contract expected
+by that task:
 
 ```bash
 python scripts/export_stage_a_motions.py \
-  --input-dir data/motions_retargeted_raw \
+  --input-dir data/motions_retargeted \
   --output-dir unitree_rl_mjlab/src/assets/motions/g1/kalari \
   --device cpu
 ```

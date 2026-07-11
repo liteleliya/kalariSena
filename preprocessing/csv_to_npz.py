@@ -37,7 +37,7 @@ def main():
     parser = argparse.ArgumentParser(description="CSV -> NPZ for G1 motion.")
     parser.add_argument("--csv", required=True, help="Input motion CSV.")
     parser.add_argument("--out", default=None, help="Output .npz path.")
-    parser.add_argument("--fps", type=float, default=60.0)
+    parser.add_argument("--fps", type=float, default=50.0)
     parser.add_argument("--motion-id", default=None,
                         help="Metadata id (default: CSV file stem).")
     parser.add_argument("--family", default="urumi_sword",

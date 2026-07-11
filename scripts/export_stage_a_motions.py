@@ -72,9 +72,9 @@ def _import_mjlab_deps() -> dict[str, Any]:
         if "mjENBL_MULTICCD" in str(exc):
             raise SystemExit(
                 "Stage A dependencies are installed, but the active MuJoCo Python package is "
-                "not compatible with mujoco-warp 3.5.0. Pin MuJoCo to the 3.4.x family in "
+                "not compatible with mujoco-warp 3.5.0. Pin MuJoCo to the 3.5.x family in "
                 "this same conda environment:\n"
-                "  python -m pip install --force-reinstall 'mujoco>=3.4.0,<3.5.0' 'mujoco-warp==3.5.0'\n"
+                "  python -m pip install --force-reinstall 'mujoco>=3.5.0,<3.6.0' 'mujoco-warp==3.5.0'\n"
                 "Then verify:\n"
                 "  python -c \"import mujoco; print(mujoco.__version__, hasattr(mujoco.mjtEnableBit, 'mjENBL_MULTICCD'))\"\n"
                 f"Original import error: {exc}"
@@ -254,7 +254,7 @@ def _export_one(input_path: Path, output_path: Path, device: str) -> None:
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input-dir", type=Path, default=PROJECT_ROOT / "data/motions_retargeted_raw")
+    parser.add_argument("--input-dir", type=Path, default=PROJECT_ROOT / "data/motions_retargeted")
     parser.add_argument("--output-dir", type=Path, default=MJLAB_ROOT / "src/assets/motions/g1/kalari")
     parser.add_argument("--motion-id", action="append", default=None)
     parser.add_argument("--device", type=str, default="cpu")

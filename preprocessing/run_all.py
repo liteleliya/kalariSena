@@ -35,7 +35,7 @@ LOOP_VIEWER = True         # True = loop the motion in the 3D viewer
 # ============================ CONFIG ===============================
 INPUT_CSV = ROOT / "Data/Urumi_Sword_retarget_g1.csv"
 URDF      = ROOT / "unitree_ros/robots/g1_description/g1_29dof.urdf"
-FPS       = 30
+FPS       = 50
 
 # The pipeline's final output is the Step 7 (Savitzky-Golay) CSV.
 FINAL_CSV = INPUT_CSV.with_name(INPUT_CSV.stem + "_step7.csv")
@@ -60,7 +60,7 @@ def run(script: str, *script_args):
 
 def main():
     if RUN_PREPROCESS:
-        args = ["--csv", INPUT_CSV, "--urdf", URDF]
+        args = ["--csv", INPUT_CSV, "--urdf", URDF, "--fps", FPS]
         if not SHOW_PLOTS:
             args.append("--no-show")
         run("pre_process.py", *args)

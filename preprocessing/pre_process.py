@@ -47,7 +47,7 @@ import yourdfpy
 # Constants describing the dataset (see DATASET.md)
 # ---------------------------------------------------------------------------
 
-FPS = 30.0            # frames per second of the capture
+FPS = 50.0            # frames per second of the capture
 GRAVITY = 9.81        # m/s^2, used for the parabolic jump reconstruction
 CM_TO_M = 0.01        # CSV translations are in centimeters -> meters
 DEG_TO_RAD = np.pi / 180.0  # CSV angles are in degrees -> radians
@@ -925,6 +925,8 @@ def main():
                              "~frames/10; default 31 keeps contacts crisp on long clips.")
     parser.add_argument("--sg-polyorder", type=int, default=3,
                         help="Step 7 Savitzky-Golay polynomial order.")
+    parser.add_argument("--fps", type=float, default=FPS,
+                        help="Motion frame rate used for time axes and velocity reporting.")
     parser.add_argument("--no-show", action="store_true",
                         help="Do not open the plot window (just save the PNG).")
     args = parser.parse_args()
@@ -958,7 +960,7 @@ def main():
     # 5. STEP 1: correct the height ----------------------------------------
     print("Running Root Node Height Drift Correction...")
     P_hat, info = root_height_drift_correction(
-        P_raw, z_offset, fps=FPS, gravity=GRAVITY, tau=args.tau,
+        P_raw, z_offset, fps=args.fps, gravity=GRAVITY, tau=args.tau,
     )
 
     # 6. Report -------------------------------------------------------------
@@ -977,7 +979,7 @@ def main():
     print(f"Saved Step 1 corrected CSV -> {out_csv}")
 
     # 8. Visualize Step 1 ---------------------------------------------------
-    visualize_step1(P_raw, P_hat, z_offset, info, FPS,
+    visualize_step1(P_raw, P_hat, z_offset, info, args.fps,
                     Path(args.out_png), show=not args.no_show)
 
     # 9. STEP 2: minimum body height constraint (on top of Step 1) ---------
@@ -1001,7 +1003,7 @@ def main():
     print(f"Saved Step 2 corrected CSV -> {out_csv2}")
 
     # 11. Visualize Step 2 --------------------------------------------------
-    visualize_step2(P_hat, P_hat2, z_offset, info2, FPS,
+    visualize_step2(P_hat, P_hat2, z_offset, info2, args.fps,
                     Path(args.out_png2), show=not args.no_show)
 
     # 12. STEP 3: temporal propagation with velocity thresholding ----------
@@ -1021,7 +1023,7 @@ def main():
     print(f"Saved Step 3 corrected CSV -> {out_csv3}")
 
     # 14. Visualize Step 3 --------------------------------------------------
-    visualize_step3(P_hat2, P_hat3, info3, FPS,
+    visualize_step3(P_hat2, P_hat3, info3, args.fps,
                     Path(args.out_png3), show=not args.no_show)
 
     # 15. STEP 4: detect true jump segments (skip squats/stands) -----------
@@ -1032,7 +1034,7 @@ def main():
     print(f"  true jump segments : {len(segments)}")
     for s in segments:
         print(f"    take-off f{s['t_s']}  apex f{s['apex']}  landing f{s['t_e']}")
-    visualize_step4(P_hat3, info4, FPS, Path(args.out_png4), show=not args.no_show)
+    visualize_step4(P_hat3, info4, args.fps, Path(args.out_png4), show=not args.no_show)
 
     # 16. STEP 5: parabolic reconstruction of the jump arcs ----------------
     print("Running Parabolic Reconstruction...")
@@ -1049,7 +1051,7 @@ def main():
     print(f"Saved FINAL (Step 5) corrected CSV -> {out_csv5}")
 
     # 18. Visualize Step 5 --------------------------------------------------
-    visualize_step5(P_hat3, P_hat5, info5, FPS,
+    visualize_step5(P_hat3, P_hat5, info5, args.fps,
                     Path(args.out_png5), show=not args.no_show)
 
     # 19. STEP 6: final ground-penetration clamp ---------------------------
@@ -1057,7 +1059,7 @@ def main():
     P_hat6, info6 = final_ground_penetration_correction(P_hat5, z_offset)
     print(f"  penetrating frames fixed : {int(np.sum(info6['penetrating']))}")
     print(f"  min clearance after Step 6: {float(np.min(info6['clearance_after'])):+.4f} m")
-    visualize_step6(info6, FPS, Path(args.out_png6), show=not args.no_show)
+    visualize_step6(info6, args.fps, Path(args.out_png6), show=not args.no_show)
 
     # 20. STEP 7: Savitzky-Golay smoothing of every channel ----------------
     print("Running Savitzky-Golay Smoothing...")
@@ -1076,7 +1078,7 @@ def main():
     print(f"Saved FINAL (Step 7) smoothed CSV -> {out_csv7}")
 
     # 22. Visualize Step 7 --------------------------------------------------
-    visualize_step7(df_step6, df_step7, joint_cols, FPS, info7,
+    visualize_step7(df_step6, df_step7, joint_cols, args.fps, info7,
                     Path(args.out_png7), show=not args.no_show)
 
 

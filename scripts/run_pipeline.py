@@ -55,7 +55,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--skip-annotate", action="store_true")
 
     parser.add_argument("--urdf", type=str, default="assets/unitree_g1/g1.urdf")
-    parser.add_argument("--fps", type=float, default=30.0)
+    parser.add_argument("--fps", type=float, default=50.0)
     parser.add_argument("--pos-scale", type=float, default=1.0)
     parser.add_argument("--root-euler-order", type=str, default="xyz")
     parser.add_argument("--angles-deg", action="store_true")

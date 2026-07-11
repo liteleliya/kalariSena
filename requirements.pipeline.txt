@@ -4,4 +4,7 @@ pyyaml
 scipy
 shapely
 pin
+matplotlib
+yourdfpy
+meshcat
 huggingface_hub

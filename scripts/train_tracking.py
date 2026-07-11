@@ -79,7 +79,7 @@ def main() -> None:
     motion_file = motion_file.expanduser().resolve()
     if not motion_file.exists() and not args.dry_run:
         raise SystemExit(
-            f"Motion file not found: {motion_file}\n"
+            f"Motion file or directory not found: {motion_file}\n"
             "Generate it first with scripts/export_stage_a_motions.py."
         )
 
@@ -92,7 +92,7 @@ def main() -> None:
         sys.executable,
         "scripts/train.py",
         task,
-        f"--motion_file={motion_file}",
+        f"--motion-file={motion_file}",
         f"--env.scene.num-envs={num_envs}",
         f"--agent.max-iterations={max_iterations}",
     ]
@@ -105,7 +105,7 @@ def main() -> None:
     print("Running:")
     print(" ".join(str(part) for part in cmd))
     if not motion_file.exists():
-        print(f"[dry-run warning] Motion file does not exist yet: {motion_file}")
+        print(f"[dry-run warning] Motion file or directory does not exist yet: {motion_file}")
     if args.dry_run:
         return
 

@@ -77,6 +77,8 @@ def main():
     parser.add_argument("--csv", required=True)
     parser.add_argument("--urdf", required=True)
     parser.add_argument("--out-png", default="outputs/threshold_calibration.png")
+    parser.add_argument("--fps", type=float, default=FPS,
+                        help="Motion frame rate used when reporting m/frame thresholds in m/s.")
     parser.add_argument("--no-show", action="store_true")
     args = parser.parse_args()
 
@@ -95,7 +97,7 @@ def main():
     z_offset = compute_z_offsets(urdf, joints_rad)
 
     # --- run Steps 1-2 to get the signals each threshold acts on ----------
-    P1, _ = root_height_drift_correction(P_raw, z_offset, fps=FPS, gravity=GRAVITY)
+    P1, _ = root_height_drift_correction(P_raw, z_offset, fps=args.fps, gravity=GRAVITY)
     P2, _ = minimum_body_height_constraint(P1, z_offset)
 
     vel_raw = np.abs(np.diff(P_raw))        # Step 1 tau acts here
@@ -107,7 +109,7 @@ def main():
     contact_sugg = otsu_threshold(clearance1)
     tau3_sugg = otsu_threshold(vel_step2)
 
-    fps = FPS
+    fps = args.fps
     print("\n================ THRESHOLD CALIBRATION ================")
     print(f"(units: velocity in m/frame; multiply by fps={fps:.0f} for m/s)\n")
     print(pct_line("|raw velocity|     ", vel_raw))
