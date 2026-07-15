@@ -5,7 +5,7 @@ env:
   num_envs: 4096
 
 agent:
-  max_iterations: 30001
+  max_iterations: 100000
 
 export:
   input_dir: data/motions_retargeted
