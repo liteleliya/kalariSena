@@ -1,0 +1,981 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>KalariSena Motion Gallery</title>
+    <style>
+      :root {
+        --bg: #f4f1e8;
+        --paper: #fffdf7;
+        --ink: #1c2322;
+        --muted: #65706d;
+        --line: #ded5c4;
+        --accent: #8d2f23;
+        --accent-2: #1d6b60;
+        --soft: #eee2cf;
+        --side: #17221f;
+        --shadow: 0 14px 38px rgba(48, 31, 18, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Arial,
+          sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+      }
+
+      .sidebar {
+        position: fixed;
+        inset: 0 auto 0 0;
+        width: 292px;
+        background:
+          linear-gradient(
+            180deg,
+            rgba(17, 30, 27, 0.94),
+            rgba(35, 22, 18, 0.96)
+          ),
+          url("https://images.unsplash.com/photo-1599059813005-11265ba4b4ce?auto=format&fit=crop&w=900&q=80");
+        background-size: cover;
+        background-position: center;
+        color: #fff;
+        padding: 26px 22px;
+        overflow: auto;
+      }
+
+      .brand {
+        font-size: 30px;
+        line-height: 1;
+        font-weight: 850;
+        letter-spacing: 0;
+        margin-bottom: 8px;
+      }
+
+      .subtitle {
+        color: #d8ddd8;
+        font-size: 13px;
+        line-height: 1.5;
+        margin-bottom: 20px;
+      }
+
+      .search {
+        width: 100%;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.09);
+        color: #fff;
+        padding: 12px 13px;
+        margin-bottom: 16px;
+        outline: none;
+      }
+
+      .search::placeholder {
+        color: #ccd4cf;
+      }
+
+      .nav a {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: #fff;
+        text-decoration: none;
+        padding: 11px 12px;
+        border-radius: 12px;
+        margin: 6px 0;
+        background: rgba(255, 255, 255, 0.07);
+        font-size: 14px;
+      }
+
+      .nav a:hover {
+        background: rgba(255, 255, 255, 0.15);
+      }
+
+      .count {
+        color: #e8d6b8;
+        font-size: 12px;
+      }
+
+      .main {
+        margin-left: 292px;
+        padding: 32px 38px 80px;
+      }
+
+      .hero {
+        min-height: 340px;
+        display: grid;
+        align-items: end;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 34px 38px;
+        color: #fff;
+        background:
+          linear-gradient(
+            90deg,
+            rgba(18, 24, 21, 0.86),
+            rgba(18, 24, 21, 0.48) 58%,
+            rgba(18, 24, 21, 0.2)
+          ),
+          url("https://images.unsplash.com/photo-1603723313441-9e786f2e560d?auto=format&fit=crop&w=1800&q=80");
+        background-size: cover;
+        background-position: center;
+        box-shadow: var(--shadow);
+      }
+
+      .hero h1 {
+        max-width: 940px;
+        margin: 0 0 14px;
+        font-size: 52px;
+        line-height: 1;
+        letter-spacing: 0;
+      }
+
+      .hero p {
+        max-width: 980px;
+        margin: 0;
+        color: #ecf0ea;
+        font-size: 18px;
+        line-height: 1.62;
+      }
+
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        margin: 24px 0 0;
+      }
+
+      .chip {
+        border: 1px solid rgba(255, 255, 255, 0.26);
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
+        border-radius: 999px;
+        padding: 8px 11px;
+        font-size: 12px;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 18px;
+        margin: 24px 0 34px;
+      }
+
+      .stat {
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 22px;
+        text-align: center;
+        box-shadow: 0 8px 24px rgba(48, 31, 18, 0.05);
+      }
+
+      .stat strong {
+        display: block;
+        color: var(--accent);
+        font-size: 34px;
+        line-height: 1;
+        margin-bottom: 6px;
+      }
+
+      .stat span {
+        color: var(--muted);
+      }
+
+      .domain {
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 28px;
+        margin: 32px 0;
+        box-shadow: var(--shadow);
+      }
+
+      .domain[hidden],
+      .card[hidden] {
+        display: none;
+      }
+
+      .domain-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 20px;
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 20px;
+        margin-bottom: 24px;
+      }
+
+      .domain h2 {
+        font-size: 32px;
+        line-height: 1.1;
+        margin: 0 0 8px;
+        letter-spacing: 0;
+      }
+
+      .domain-desc {
+        color: #4e5a56;
+        line-height: 1.6;
+        max-width: 860px;
+      }
+
+      .badge {
+        white-space: nowrap;
+        background: #f3e4ca;
+        border: 1px solid #dbc49c;
+        color: #79411e;
+        border-radius: 999px;
+        padding: 8px 12px;
+        font-size: 13px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 22px;
+      }
+
+      .card {
+        background: #fff;
+        border: 1px solid #e2d8c8;
+        border-radius: 8px;
+        padding: 18px;
+        box-shadow: 0 6px 18px rgba(48, 31, 18, 0.05);
+      }
+
+      .card-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+
+      .card h3 {
+        font-size: 18px;
+        line-height: 1.25;
+        margin: 0 0 6px;
+      }
+
+      .index {
+        flex: 0 0 auto;
+        color: #7d5131;
+        background: #f4ead8;
+        border-radius: 999px;
+        padding: 5px 9px;
+        font-size: 12px;
+      }
+
+      .desc {
+        color: #4c5754;
+        font-size: 14px;
+        line-height: 1.55;
+        margin: 0 0 12px;
+      }
+
+      .videos {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin: 14px 0;
+      }
+
+      .video-panel {
+        min-height: 150px;
+        aspect-ratio: 16 / 10;
+        border: 1px solid #d6c9b8;
+        border-radius: 8px;
+        background: #f7f0e4;
+        overflow: hidden;
+        display: grid;
+      }
+
+      .placeholder {
+        min-height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 18px;
+        color: #665b4a;
+        background:
+          linear-gradient(
+            135deg,
+            rgba(141, 47, 35, 0.09),
+            rgba(29, 107, 96, 0.12)
+          ),
+          repeating-linear-gradient(
+            45deg,
+            rgba(255, 255, 255, 0.42) 0 8px,
+            rgba(255, 255, 255, 0.16) 8px 16px
+          );
+      }
+
+      .placeholder b {
+        color: #23302d;
+        margin-bottom: 5px;
+      }
+
+      video {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        background: #111;
+      }
+
+      .transfer {
+        border-left: 3px solid var(--accent-2);
+        padding-left: 11px;
+      }
+
+      .detail {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 12px;
+        font-size: 13px;
+      }
+
+      .info {
+        background: #faf4e9;
+        border: 1px solid #ede0cc;
+        border-radius: 8px;
+        padding: 10px;
+        line-height: 1.45;
+      }
+
+      .info b {
+        display: block;
+        color: #8d2f23;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 4px;
+      }
+
+      .tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+        margin-top: 12px;
+      }
+
+      .tag {
+        background: #eaf5f0;
+        color: #1d6b60;
+        border: 1px solid #cbe6db;
+        border-radius: 999px;
+        padding: 5px 8px;
+        font-size: 12px;
+      }
+
+      .tag.difficulty {
+        background: #f5ece9;
+        color: #8d2f23;
+        border-color: #ebcec7;
+      }
+
+      .empty {
+        display: none;
+        border: 1px solid var(--line);
+        background: var(--paper);
+        border-radius: 8px;
+        padding: 24px;
+        color: var(--muted);
+        text-align: center;
+      }
+
+      .empty.is-visible {
+        display: block;
+      }
+
+      @media (max-width: 1180px) {
+        .sidebar {
+          position: relative;
+          width: auto;
+          min-height: auto;
+        }
+
+        .main {
+          margin-left: 0;
+          padding: 24px 18px 60px;
+        }
+      }
+
+      @media (max-width: 860px) {
+        .hero {
+          min-height: 330px;
+          padding: 28px 22px;
+        }
+
+        .hero h1 {
+          font-size: 38px;
+        }
+        .hero p {
+          font-size: 16px;
+        }
+        .stats,
+        .grid,
+        .videos,
+        .detail {
+          grid-template-columns: 1fr;
+        }
+        .domain-head {
+          display: block;
+        }
+        .badge {
+          display: inline-block;
+          margin-top: 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <aside class="sidebar">
+      <div class="brand">KalariSena</div>
+      <div class="subtitle">
+        A paired visual browser for Kalaripayattu human demonstrations and
+        Unitree G1 retargeted executions.
+      </div>
+      <input
+        id="searchInput"
+        class="search"
+        placeholder="Search motion, family, tag..."
+      />
+      <nav id="nav" class="nav" aria-label="Motion family navigation"></nav>
+    </aside>
+
+    <main class="main">
+      <section class="hero">
+        <div>
+          <h1>KalariSena Motion Gallery</h1>
+          <p>
+            Browse paired Indian martial arts motion examples. Each card keeps
+            the <b>source Kalaripayattu demonstration</b> beside the
+            <b>retargeted Unitree G1 robot motion</b>, with compact annotations
+            for stance, action primitive, body mechanics, and downstream robot
+            tracking goals.
+          </p>
+          <div class="toolbar">
+            <span class="chip">Human motion to G1 retargeting</span>
+            <span class="chip">Motion library QA</span>
+            <span class="chip">Text-to-motion dataset planning</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="stats" aria-label="Gallery statistics">
+        <div class="stat">
+          <strong id="familyCount">0</strong><span>Motion families</span>
+        </div>
+        <div class="stat">
+          <strong id="motionCount">0</strong><span>Paired examples</span>
+        </div>
+        <div class="stat">
+          <strong id="panelCount">0</strong><span>Video panels</span>
+        </div>
+        <div class="stat"><strong>G1</strong><span>Robot target</span></div>
+      </section>
+
+      <div id="emptyState" class="empty">No motions match your search.</div>
+      <div id="gallery"></div>
+    </main>
+
+    <script>
+      const VIDEO_ROOTS = {
+        human: "videos/human/",
+        robot: "videos/robot/",
+      };
+
+      // Add a humanVideo or robotVideo filename to any motion below when the .mp4 exists.
+      // Relative filenames resolve against VIDEO_ROOTS; absolute and https URLs also work.
+
+      const families = [
+        {
+          id: "meypayattu",
+          name: "Meypayattu",
+          description:
+            "Full-body conditioning flows used to train flexibility, rhythm, balance, and continuous transitions before weapon or combat work.",
+          motions: [
+            {
+              title: "Opening salutation flow",
+              description:
+                "Hands trace a respectful opening gesture before dropping into a ready stance and forward transition.",
+              primitives: "salute -> lower -> step -> guard",
+              mechanics:
+                "spinal extension, shoulder opening, controlled descent",
+              tags: ["salute", "transition", "stance"],
+              difficulty: "Easy",
+              robotGoal:
+                "Preserve ceremonial upper-body timing while stabilizing pelvis height during the first G1 stance transition.",
+            },
+            {
+              title: "Low sweeping body flow",
+              description:
+                "A low stance sequence with sweeping arms, torso rotation, and weight transfer across the floor line.",
+              primitives: "sink -> sweep -> rotate -> recover",
+              mechanics: "deep knee flexion, trunk twist, lateral weight shift",
+              tags: ["low stance", "sweep", "balance"],
+              difficulty: "High",
+              robotGoal:
+                "Retarget large center-of-mass shifts into feasible G1 knee and hip ranges without foot slip.",
+            },
+            {
+              title: "Forward lunge and guard",
+              description:
+                "The practitioner drives forward into a long stance and resolves into a guarded upper-body shape.",
+              primitives: "drive -> plant -> extend -> guard",
+              mechanics: "long base, hip extension, arm opposition",
+              tags: ["lunge", "guard", "forward"],
+              difficulty: "Medium",
+              robotGoal:
+                "Track the lunge stride while keeping the robot torso upright enough for stable policy imitation.",
+            },
+            {
+              title: "Circular recovery flow",
+              description:
+                "A circular recovery pattern connects low stance, torso spiral, arm sweep, and upright reset.",
+              primitives: "coil -> sweep -> rise -> reset",
+              mechanics: "torso spiral, arm arc, vertical recovery",
+              tags: ["rotation", "recovery", "flow"],
+              difficulty: "Medium",
+              robotGoal:
+                "Maintain smooth phase labels through the rotational recovery so downstream motion clips stitch cleanly.",
+            },
+          ],
+        },
+        {
+          id: "chuvadu",
+          name: "Chuvadu Footwork",
+          description:
+            "Directional stepping patterns that define entry, retreat, angle changes, and rhythm for empty-hand and weapon sequences.",
+          motions: [
+            {
+              title: "Forward chuvadu",
+              description:
+                "A direct advancing step with guard alignment and measured stance length.",
+              primitives: "lift -> advance -> plant -> settle",
+              mechanics:
+                "forward base shift, foot placement, guard synchronization",
+              tags: ["step", "advance", "guard"],
+              difficulty: "Easy",
+              robotGoal:
+                "Use this as a clean locomotion primitive for validating root translation and contact timing.",
+            },
+            {
+              title: "Diagonal entry step",
+              description:
+                "The body enters on an angle, redirecting the hips and shoulders into a guarded diagonal line.",
+              primitives: "angle -> plant -> turn -> guard",
+              mechanics:
+                "yaw rotation, diagonal foot placement, hip-shoulder alignment",
+              tags: ["diagonal", "entry", "turn"],
+              difficulty: "Medium",
+              robotGoal:
+                "Retarget yaw and diagonal stride as a stable G1 stepping reference with clear left-right contacts.",
+            },
+            {
+              title: "Retreat and reset",
+              description:
+                "A controlled backward step resets distance while the arms maintain a protective guard.",
+              primitives: "push back -> plant -> absorb -> reset",
+              mechanics:
+                "backward locomotion, knee absorption, guard retention",
+              tags: ["retreat", "reset", "guard"],
+              difficulty: "Medium",
+              robotGoal:
+                "Create a reliable backward tracking clip for policy evaluation under reversed root velocity.",
+            },
+            {
+              title: "Cross-step pivot",
+              description:
+                "One foot crosses or closes before the body pivots into a new facing direction.",
+              primitives: "cross -> load -> pivot -> open",
+              mechanics: "narrow support, yaw pivot, balance recovery",
+              tags: ["pivot", "cross-step", "turn"],
+              difficulty: "High",
+              robotGoal:
+                "Constrain the pivot to robot-safe support widths while preserving the intended facing change.",
+            },
+          ],
+        },
+        {
+          id: "vadivu",
+          name: "Vadivu Animal Stances",
+          description:
+            "Animal-inspired postural shapes that emphasize silhouette, grounded balance, and expressive martial intent.",
+          motions: [
+            {
+              title: "Gaja vadivu stance",
+              description:
+                "A broad elephant-like stance with grounded weight and strong arm framing.",
+              primitives: "open -> ground -> frame -> hold",
+              mechanics: "wide base, low center, symmetric arm pressure",
+              tags: ["stance", "wide base", "hold"],
+              difficulty: "Medium",
+              robotGoal:
+                "Convert the expressive wide stance into a feasible G1 pose for static tracking and balance tests.",
+            },
+            {
+              title: "Simha vadivu guard",
+              description:
+                "A lion-like guarded posture with forward intent, chest opening, and strong hand shape.",
+              primitives: "step -> expand -> guard -> settle",
+              mechanics: "forward lean, chest expansion, hand shape emphasis",
+              tags: ["guard", "posture", "intent"],
+              difficulty: "Medium",
+              robotGoal:
+                "Retarget upper-body attitude while limiting forward torso lean to stable G1 bounds.",
+            },
+            {
+              title: "Ashwa vadivu transition",
+              description:
+                "A horse-like base shifts from one side to the other with rhythmic arm coordination.",
+              primitives: "sink -> shift -> extend -> return",
+              mechanics: "horse stance, lateral shift, arm counterbalance",
+              tags: ["horse stance", "lateral", "transition"],
+              difficulty: "High",
+              robotGoal:
+                "Preserve the lateral stance identity while smoothing hip and knee trajectories for RL tracking.",
+            },
+            {
+              title: "Sarpa vadivu coil",
+              description:
+                "A serpent-like coil and reach with curved spine, angled base, and continuous arm line.",
+              primitives: "coil -> reach -> turn -> recover",
+              mechanics: "curved torso, asymmetry, diagonal reach",
+              tags: ["coil", "reach", "asymmetry"],
+              difficulty: "High",
+              robotGoal:
+                "Approximate the coil with robot-safe torso yaw and shoulder ranges while keeping the contact schedule simple.",
+            },
+          ],
+        },
+        {
+          id: "kicks",
+          name: "Kicks And Leg Raises",
+          description:
+            "Dynamic leg actions for height, reach, direction change, and lower-body coordination.",
+          motions: [
+            {
+              title: "Front rising kick",
+              description:
+                "The leg rises forward from guard, peaks with controlled extension, and returns to stance.",
+              primitives: "chamber -> extend -> retract -> plant",
+              mechanics: "single-leg support, hip flexion, foot recovery",
+              tags: ["kick", "front", "balance"],
+              difficulty: "High",
+              robotGoal:
+                "Use as a high-risk balance benchmark with explicit support-foot contact and root stabilization.",
+            },
+            {
+              title: "Side leg lift",
+              description:
+                "A lateral leg raise opens the hip while the upper body counters the motion.",
+              primitives: "load -> abduct -> hold -> return",
+              mechanics: "hip abduction, torso counterbalance, narrow support",
+              tags: ["side kick", "abduction", "hold"],
+              difficulty: "High",
+              robotGoal:
+                "Retarget the lateral leg action as a bounded G1 mobility test before full-speed kicking.",
+            },
+            {
+              title: "Low checking kick",
+              description:
+                "A compact low kick checks forward space and quickly returns to a guarded stance.",
+              primitives: "lift -> check -> retract -> guard",
+              mechanics: "short impulse, fast recovery, guard continuity",
+              tags: ["low kick", "check", "recover"],
+              difficulty: "Medium",
+              robotGoal:
+                "Prefer this as the first kick primitive because it has lower center-of-mass excursion.",
+              humanVideo: "human.mp4",
+              robotVideo: "human.mp4",
+            },
+            {
+              title: "Turning kick setup",
+              description:
+                "Footwork and hip rotation prepare a turning kick without fully committing to high impact.",
+              primitives: "step -> turn -> chamber -> reset",
+              mechanics: "yaw setup, hip coil, dynamic stance",
+              tags: ["turn", "kick setup", "rotation"],
+              difficulty: "High",
+              robotGoal:
+                "Separate turn setup from strike execution so the retargeting pipeline can validate phases independently.",
+            },
+          ],
+        },
+        {
+          id: "empty-hand",
+          name: "Empty-Hand Actions",
+          description:
+            "Punches, blocks, guards, and evasive actions where expressive arms must remain synchronized with lower-body support.",
+          motions: [
+            {
+              title: "Straight punch from stance",
+              description:
+                "A direct arm extension launches from a rooted stance with coordinated shoulder and hip rotation.",
+              primitives: "load -> punch -> retract -> guard",
+              mechanics: "arm extension, hip drive, guarded recovery",
+              tags: ["punch", "guard", "strike"],
+              difficulty: "Medium",
+              robotGoal:
+                "Retarget as a clean upper-body strike primitive while preserving stable lower-body contacts.",
+            },
+            {
+              title: "High block",
+              description:
+                "The forearm rises to protect the head while the stance absorbs and redirects the imagined force.",
+              primitives: "raise -> shield -> settle -> return",
+              mechanics: "shoulder lift, elbow angle, stance absorption",
+              tags: ["block", "shield", "upper body"],
+              difficulty: "Easy",
+              robotGoal:
+                "Use as a low-risk arm trajectory for checking shoulder and elbow limits after retargeting.",
+            },
+            {
+              title: "Low block with step",
+              description:
+                "The body steps outward as one arm cuts down into a low protective line.",
+              primitives: "step -> drop -> sweep -> guard",
+              mechanics: "stepping base, downward arm path, torso angle",
+              tags: ["block", "step", "low line"],
+              difficulty: "Medium",
+              robotGoal:
+                "Synchronize arm sweep timing with foot contact labels in the canonical motion library.",
+            },
+            {
+              title: "Evasive lean and counter",
+              description:
+                "A small upper-body evasion leads into a counter-strike while the feet preserve stance integrity.",
+              primitives: "lean -> load -> counter -> recover",
+              mechanics: "torso lean, quick arm action, balance recovery",
+              tags: ["evasion", "counter", "balance"],
+              difficulty: "High",
+              robotGoal:
+                "Constrain the lean amplitude but preserve the attack-defense phase relationship for generated clips.",
+            },
+          ],
+        },
+        {
+          id: "weapons",
+          name: "Weapon Forms",
+          description:
+            "Stick, sword-shield, and flexible-weapon-inspired patterns represented as motion references for future tool-aware retargeting.",
+          motions: [
+            {
+              title: "Short stick diagonal strike",
+              description:
+                "A diagonal stick path travels across the body while the feet stabilize the strike line.",
+              primitives: "grip -> raise -> strike -> recover",
+              mechanics: "tool arc, shoulder rotation, stance brace",
+              tags: ["stick", "diagonal", "tool"],
+              difficulty: "Medium",
+              robotGoal:
+                "Track the hand path first; add physical stick simulation only after the body motion is stable.",
+            },
+            {
+              title: "Long staff sweep",
+              description:
+                "A broad staff-inspired sweep couples hand spacing, torso rotation, and foot repositioning.",
+              primitives: "set grip -> sweep -> pivot -> reset",
+              mechanics: "bimanual spacing, large arc, yaw pivot",
+              tags: ["staff", "sweep", "bimanual"],
+              difficulty: "High",
+              robotGoal:
+                "Represent the staff as a virtual line constraint between hands during retargeting QA.",
+            },
+            {
+              title: "Sword and shield guard",
+              description:
+                "One arm frames a shield line while the other prepares a short controlled strike.",
+              primitives: "shield -> chamber -> strike -> cover",
+              mechanics: "asymmetric arms, forward guard, compact strike",
+              tags: ["sword", "shield", "asymmetry"],
+              difficulty: "High",
+              robotGoal:
+                "Keep left and right arm roles explicit for future object-aware robot execution.",
+            },
+            {
+              title: "Flexible weapon circle",
+              description:
+                "A circular arm pattern approximates flexible-weapon preparation with strong phase and spacing cues.",
+              primitives: "circle -> step -> circle -> settle",
+              mechanics: "continuous arm loop, torso rhythm, spatial clearance",
+              tags: ["circle", "weapon", "rhythm"],
+              difficulty: "High",
+              robotGoal:
+                "Use as a motion-generation stress test for continuous loops and collision-aware arm paths.",
+            },
+          ],
+        },
+      ];
+
+      function fileUrl(kind, fileName) {
+        if (!fileName) return "";
+        if (
+          /^https?:\/\//.test(fileName) ||
+          fileName.startsWith("./") ||
+          fileName.startsWith("../") ||
+          fileName.startsWith("/")
+        ) {
+          return fileName;
+        }
+        return VIDEO_ROOTS[kind] + fileName;
+      }
+
+      function videoPanel(label, fileName, kind) {
+        const src = fileUrl(kind, fileName);
+        if (!src) {
+          return `
+            <div class="video-panel">
+              <div class="placeholder">
+                <b>${label}</b>
+                <span>Add ${kind} .mp4 path in the motion data</span>
+              </div>
+            </div>`;
+        }
+        return `
+          <div class="video-panel">
+            <video controls preload="metadata" playsinline muted>
+              <source src="${src}" type="video/mp4" />
+              ${label}
+            </video>
+          </div>`;
+      }
+
+      function motionCard(motion, index, total) {
+        const searchable = [
+          motion.title,
+          motion.description,
+          motion.primitives,
+          motion.mechanics,
+          motion.difficulty,
+          motion.robotGoal,
+          ...(motion.tags || []),
+        ]
+          .join(" ")
+          .toLowerCase();
+
+        return `
+          <article class="card" data-search="${searchable}">
+            <div class="card-top">
+              <div>
+                <h3>${motion.title}</h3>
+                <p class="desc">${motion.description}</p>
+              </div>
+              <span class="index">${String(index + 1).padStart(2, "0")}/${String(total).padStart(2, "0")}</span>
+            </div>
+            <div class="videos">
+              ${videoPanel("Human Kalaripayattu video", motion.humanVideo, "human")}
+              ${videoPanel("Unitree G1 retargeted video", motion.robotVideo, "robot")}
+            </div>
+            <p class="desc transfer"><b>Robot transfer goal:</b> ${motion.robotGoal}</p>
+            <div class="detail">
+              <div class="info"><b>Primitive sequence</b>${motion.primitives}</div>
+              <div class="info"><b>Body mechanics</b>${motion.mechanics}</div>
+              <div class="info"><b>Retargeting signals</b>${motion.tags.join(", ")}</div>
+              <div class="info"><b>Difficulty</b>${motion.difficulty}</div>
+            </div>
+            <div class="tags">
+              ${motion.tags.map((tag) => `<span class="tag">${tag}</span>`).join("")}
+              <span class="tag difficulty">${motion.difficulty}</span>
+            </div>
+          </article>`;
+      }
+
+      function renderGallery() {
+        const nav = document.getElementById("nav");
+        const gallery = document.getElementById("gallery");
+        const totalMotions = families.reduce(
+          (sum, family) => sum + family.motions.length,
+          0,
+        );
+
+        nav.innerHTML = families
+          .map(
+            (family) => `
+          <a href="#${family.id}">
+            <span>${family.name}</span>
+            <span class="count">${family.motions.length}</span>
+          </a>
+        `,
+          )
+          .join("");
+
+        gallery.innerHTML = families
+          .map(
+            (family) => `
+          <section id="${family.id}" class="domain" data-family="${family.name.toLowerCase()}">
+            <div class="domain-head">
+              <div>
+                <h2>${family.name}</h2>
+                <div class="domain-desc">${family.description}</div>
+              </div>
+              <div class="badge">${family.motions.length} paired examples</div>
+            </div>
+            <div class="grid">
+              ${family.motions.map((motion, index) => motionCard(motion, index, family.motions.length)).join("")}
+            </div>
+          </section>
+        `,
+          )
+          .join("");
+
+        document.getElementById("familyCount").textContent = families.length;
+        document.getElementById("motionCount").textContent = totalMotions;
+        document.getElementById("panelCount").textContent = totalMotions * 2;
+      }
+
+      function wireSearch() {
+        const input = document.getElementById("searchInput");
+        const empty = document.getElementById("emptyState");
+
+        input.addEventListener("input", () => {
+          const query = input.value.trim().toLowerCase();
+          let visibleCards = 0;
+
+          document.querySelectorAll(".domain").forEach((domain) => {
+            let visibleInDomain = 0;
+            const familyText = domain.dataset.family || "";
+
+            domain.querySelectorAll(".card").forEach((card) => {
+              const matched =
+                !query ||
+                familyText.includes(query) ||
+                card.dataset.search.includes(query);
+              card.hidden = !matched;
+              if (matched) visibleInDomain += 1;
+            });
+
+            domain.hidden = visibleInDomain === 0;
+            visibleCards += visibleInDomain;
+          });
+
+          empty.classList.toggle("is-visible", visibleCards === 0);
+        });
+      }
+
+      renderGallery();
+      wireSearch();
+    </script>
+  </body>
+</html>
